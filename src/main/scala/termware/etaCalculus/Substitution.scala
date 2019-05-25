@@ -1,211 +1,156 @@
 package termware.etaCalculus
 
-import termware.util.IdentityRef
+import termware.util.{FastRefOption, IdentityRef}
 
-
-trait IVarSubstitution
-{
-
-   type Carrier
-
-   def  carrier: Carrier
-
-   def tcVarSubstitution: TCVarSubstitution[Carrier]
-
-   def isContradiction(): Boolean = tcVarSubstitution.isContradiction(carrier)
-
-   def isStar(): Boolean = tcVarSubstitution.isStar(carrier)
-
-  // TODO: change to FastRefOption
-   def get[T](x: T)(implicit tcx: TCVarTerm[T]): Option[ITerm] =
-     tcVarSubstitution.get(carrier,x)(tcx)
-
-   def get(x: IVarTerm): Option[ITerm] =
-     get(x.carrier)(x.tcVarTerm)
-
-   def getOrElse(x: IVarTerm, ifNot: ITerm): ITerm =
-     get(x) match {
-       case Some(y) => y
-       case None => ifNot
-     }
-
-   def put[T,S](x:T,y:S)(implicit tcx:TCVarTerm[T], tcy: TCTerm[S]): IVarSubstitution =
-     tcVarSubstitution.put(carrier,x,y)
-
-  def put(x:IVarTerm,y:ITerm): IVarSubstitution =
-    tcVarSubstitution.put(carrier,x.carrier,y.carrier)(x.tcVarTerm,y.tcTerm)
-
-   def remove[T](x:T)(implicit tcx:TCVarTerm[T]): IVarSubstitution =
-     tcVarSubstitution.remove(carrier,x)
-
-   def empty(): IVarSubstitution = STARSubstitution
-
-   def foldWhile[S](s0:S)(f:(S,(IVarTerm,ITerm)) => S)(p:S => Boolean) =
-     tcVarSubstitution.foldWhile(carrier,s0)(f)(p)
-
-}
-
-trait   TCVarSubstitution[T]
+trait   TCSubstitution[T,N <: ITerm, V <: ITerm]
 {
 
   type Carrier = T
 
-  def isubstitution(t:T): IVarSubstitution
+  type Name = N
 
-  def isContradiction(t:T):Boolean
+  type Value = V
 
-  def isStar(t:T): Boolean
+  def isubstitution(t:T): ISubstitution[N,V]
 
-  def put[X,Y](t:T,x:X,y:Y)(implicit tcx:TCVarTerm[X], tcy: TCTerm[Y]): IVarSubstitution
+  def isEmpty(t:T): Boolean
 
-  def get[X](t:T, x:X)(implicit tcx:TCVarTerm[X]): Option[ITerm]
+  def update(t:T,x:N,y:V): ISubstitution[N,V]
 
-  def remove[X](t:T, x:X)(implicit tcx:TCVarTerm[X]): IVarSubstitution
+  def get(t:T, x:N): Option[ITerm]
 
-  def merge[S](t:T,s:S)(implicit tcs: TCVarSubstitution[S]): IVarSubstitution = {
-    merge(t,tcs.isubstitution(s))
-  }
+  def remove(t:T, x:N): ISubstitution[N,V]
 
-  def merge(t:T,s:IVarSubstitution): IVarSubstitution = {
-    foldWhile(t,s){(s,e) =>
-      s.put(e._1,e._2)
-    }{ ! _.isContradiction() }
-  }
+  def foldWhile[S](t:T,s0:S)(f:(S,(N,V)) => S)(p: S => Boolean):S
 
-  def foldWhile[S](t:T,s0:S)(f:(S,(IVarTerm,ITerm)) => S)(p: S => Boolean):S
+  def mapValues(t:T,f:V=>ITerm):ISubstitution[N,ITerm]
 
-  def empty(): IVarSubstitution = STARSubstitution
+  def empty(): ISubstitution[N,V]
 
 }
 
-case class CVarSubstitution[T](t:T, tc:TCVarSubstitution[T]) extends IVarSubstitution
+trait ISubstitution[L <: ITerm, R <: ITerm]
+{
+
+  thisSubstitution =>
+
+  type Carrier
+
+  type Name = L
+
+  type Value = R
+
+  def  carrier: Carrier
+
+  def tcSubstitution: TCSubstitution[Carrier,Name,Value]
+
+  def isStar(): Boolean = tcSubstitution.isEmpty(carrier)
+
+  def isEmpty(): Boolean = tcSubstitution.isEmpty(carrier)
+
+  // TODO: change to FastRefOption
+  def get(x: Name): Option[ITerm] =
+    tcSubstitution.get(carrier,x)
+
+  def getOrElse(x: Name, ifNot: ITerm): ITerm =
+    get(x) match {
+      case Some(y) => y
+      case None => ifNot
+    }
+
+  def update(x:Name,y:Value): ISubstitution[Name,Value] =
+    tcSubstitution.update(carrier,x,y)
+
+
+  def remove[T](x:Name): ISubstitution[Name,Value] =
+    tcSubstitution.remove(carrier,x)
+
+  def orElse(s:ISubstitution[L,R]): ISubstitution[L,R] = {
+    s.foldWhile(this){ case (s,(n,v)) =>
+      if (s.get(n).isDefined) {
+         s
+      } else {
+        s.update(n,v)
+      }
+    }(_ => true)
+  }
+
+
+  def empty(): ISubstitution[Name,Value] = tcSubstitution.empty()
+
+  def foldWhile[S](s0:S)(f:(S,(Name,Value)) => S)(p:S => Boolean) =
+    tcSubstitution.foldWhile(carrier,s0)(f)(p)
+
+  def mapValues(f:R=>ITerm): ISubstitution[L,ITerm] =
+    tcSubstitution.mapValues(carrier,f)
+
+
+}
+
+
+case class CSubstitution[T,N <: ITerm,V <: ITerm](t:T, tc:TCSubstitution[T,N,V]) extends ISubstitution[N,V]
 {
   override type Carrier = T
 
+  override type Name = N
+
+  override type Value = V
+
   override def carrier: T = t
 
-  override def tcVarSubstitution: TCVarSubstitution[T] = tc
+  override def tcSubstitution: TCSubstitution[Carrier,Name,Value] = tc
 
 }
 
 
-case class  VarSubstitutionInMap(owner:IEtaTerm, nameMap: Map[IName,ITerm]) extends IVarSubstitution
-{
-  override type Carrier = VarSubstitutionInMap
-
-  override def carrier: VarSubstitutionInMap = this
-
-  override def tcVarSubstitution: TCVarSubstitution[VarSubstitutionInMap] = TCSubstitutionInMap
-
-}
-
-object TCSubstitutionInMap extends TCVarSubstitution[VarSubstitutionInMap]{
-
-  override def isContradiction(t: VarSubstitutionInMap): Boolean = false
-
-  override def isStar(t: VarSubstitutionInMap): Boolean = t.nameMap.isEmpty
-
-  override def get[X](t: VarSubstitutionInMap, x: X)(implicit tcx: TCVarTerm[X]): Option[ITerm] = {
-    if (tcx.owner(x) eq t.owner) {
-      t.nameMap.get(tcx.name(x))
-    } else None
-  }
-
-  override def put[X, Y](t: VarSubstitutionInMap, x: X, y: Y)(implicit tcx: TCVarTerm[X], tcy: TCTerm[Y]): IVarSubstitution = {
-    if (t.owner eq tcx.owner(x)) {
-      t.nameMap.get(tcx.name(x)) match {
-        case None => VarSubstitutionInMap(t.owner, t.nameMap.updated(tcx.name(x),tcy.iterm(y)))
-        case Some(otherDefinition) =>
-            tcy.leftUnifyInSubst(y,t,otherDefinition.carrier)(this,otherDefinition.tcTerm)
-      }
-    } else {
-      ContradictionSubstitution(s"Siubstitution owner should be ${t.owner} we have ${tcx.owner(x)} for ${tcx.name(x)}")
-    }
-  }
-
-  override def remove[X](t: VarSubstitutionInMap, x: X)(implicit tcx: TCVarTerm[X]): IVarSubstitution = {
-     if (t.owner eq tcx.owner(x)) {
-       VarSubstitutionInMap(t.owner,t.nameMap - tcx.name(x))
-     } else {
-       isubstitution(t)
-     }
-  }
-
-  override def isubstitution(t: VarSubstitutionInMap): IVarSubstitution = t
-
-
-  override def foldWhile[S](t: VarSubstitutionInMap, s0: S)(f: (S, (IVarTerm, ITerm)) => S)(p: S => Boolean): S = {
-    var q = false
-    var s = s0
-    val it = t.nameMap.iterator
-    while(!q && it.hasNext) {
-      val (name,value) = it.next()
-      val vv = (PlainVarTerm(t.owner,name),value)
-      q = !p(s)
-      if (!q) {
-        s = f(s, vv)
-      }
-    }
-    s
-  }
-
-}
-
-case class MapBasedVarSubstitution(values: Map[IdentityRef[IEtaTerm],Map[IName,ITerm]]) extends IVarSubstitution
+case class MapBasedVarSubstitution(values: Map[IdentityRef[IEtaTerm],Map[IName,ITerm]]) extends ISubstitution[IVarTerm,ITerm]
 {
 
   override type Carrier = MapBasedVarSubstitution
+
+  override type Name = IVarTerm
+
+  override type Value = ITerm
 
   override def carrier: MapBasedVarSubstitution = this
 
-  override def tcVarSubstitution: TCVarSubstitution[MapBasedVarSubstitution] = TCMapBasedSubstitution
+  override def tcSubstitution: TCSubstitution[MapBasedVarSubstitution,IVarTerm,ITerm] = TCMapBasedVarSubstitution
 
 }
 
-object TCMapBasedSubstitution extends TCVarSubstitution[MapBasedVarSubstitution]
+object MapBasedVarSubstitution {
+
+  val empty = MapBasedVarSubstitution(Map.empty)
+
+}
+
+object TCMapBasedVarSubstitution extends TCSubstitution[MapBasedVarSubstitution,IVarTerm,ITerm]
 {
 
   override type Carrier = MapBasedVarSubstitution
 
-  override def isContradiction(t:Carrier):Boolean = false
+  override def isubstitution(t: Carrier): ISubstitution[IVarTerm,ITerm] = t
 
-  override def isStar(t:Carrier): Boolean = t.values.isEmpty
-
-  override def isubstitution(t: Carrier): IVarSubstitution = t
-
-  override def get[X](t: Carrier, x: X)(implicit tcx: TCVarTerm[X]): Option[ITerm] = {
-    t.values.get(tcx.ownerRef(x)).flatMap(n => n.get(tcx.name(x)))
+  override def get(t: Carrier, x: IVarTerm): Option[ITerm] = {
+    t.values.get(x.ownerRef).flatMap(n => n.get(x.name))
   }
 
-  def put[X,Y](t:Carrier,x:X,y:Y)(implicit tcx:TCVarTerm[X], tcy: TCTerm[Y]): IVarSubstitution = {
-    val ownerRef = tcx.ownerRef(x)
-    val (nMap, merged) = t.values.get(ownerRef) match {
-      case None => (Map(ownerRef -> Map(tcx.name(x) -> tcy.iterm(y))),empty())
-      case Some(oldNames) => val name = tcx.name(x)
-        val e = empty()
-        oldNames.get(name) match {
-          case None => (t.values.updated(ownerRef, oldNames.updated(name, tcy.iterm(y))),e)
-          case Some(oldValue) =>
-            val s = oldValue.tcTerm.leftUnifyInSubst(oldValue.carrier, e.carrier, y)(e.tcVarSubstitution,tcy)
-            if (s.isContradiction()) {
-              (t.values,s)
-            } else {
-              (t.values.updated(ownerRef, oldNames.updated(name, tcy.iterm(y))),s)
-            }
-        }
-    }
-    if (merged.isContradiction()) {
-      merged
-    } else {
-      merge(MapBasedVarSubstitution(nMap),merged)
-    }
+  override def update(t: Carrier, x: IVarTerm, y: ITerm): ISubstitution[IVarTerm, ITerm] = {
+    MapBasedVarSubstitution(
+      t.values.get(x.ownerRef) match {
+        case None => t.values.updated(x.ownerRef,Map(x.name -> y))
+        case Some(xOwner) => t.values.updated(x.ownerRef,
+          xOwner.updated(x.name,y))
+      }
+    )
   }
 
-  def remove[X](t:MapBasedVarSubstitution, x:X)(implicit tcx:TCVarTerm[X]): IVarSubstitution = {
-     val ownerRef = tcx.ownerRef(x)
+
+  override def remove(t:Carrier, x:IVarTerm): ISubstitution[IVarTerm,ITerm] = {
+     val ownerRef = x.ownerRef
      t.values.get(ownerRef) match {
        case None => isubstitution(t)
-       case Some(w) => val newNameMap = w - tcx.name(x)
+       case Some(w) => val newNameMap = w - x.name
          if (newNameMap.isEmpty) {
            MapBasedVarSubstitution(t.values - ownerRef)
          } else {
@@ -232,88 +177,69 @@ object TCMapBasedSubstitution extends TCVarSubstitution[MapBasedVarSubstitution]
     s
   }
 
+  override def empty(): ISubstitution[IVarTerm, ITerm] = MapBasedVarSubstitution.empty
+
+  override def isEmpty(t: Carrier): Boolean = t.values.isEmpty
+
+  override def mapValues(t: Carrier, f: ITerm => ITerm): ISubstitution[IVarTerm, ITerm] = {
+    new MapBasedVarSubstitution(t.values.mapValues(_.mapValues(f)))
+  }
+
 }
 
-object STARSubstitution extends IVarSubstitution {
 
-  override type Carrier = STARSubstitution.type
 
-  val tcVarSubstitution = new TCVarSubstitution[STARSubstitution.type ] {
+class TCMapBasedTermSubstitution[L <: ITerm, R <: ITerm] extends TCSubstitution[MapBasedTermSubstitution[L,R],L,R]
+{
+  override def isubstitution(t: MapBasedTermSubstitution[L, R]): ISubstitution[L, R] = t
 
-    override def isContradiction(t: STARSubstitution.type): Boolean = false
+  override def isEmpty(t: MapBasedTermSubstitution[L, R]): Boolean = t.value.isEmpty
 
-    override def isStar(t: STARSubstitution.type): Boolean = true
+  override def update(t: MapBasedTermSubstitution[L, R], x: L, y: R): ISubstitution[L, R] =
+           new MapBasedTermSubstitution(t.value.updated(x,y))
 
-    override def put[X, Y](t: STARSubstitution.type , x: X, y: Y)(implicit tcx: TCVarTerm[X], tcy: TCTerm[Y]): IVarSubstitution = MapBasedVarSubstitution(Map(tcx.ownerRef(x) -> Map( tcx.name(x) -> tcy.iterm(y))))
+  override def get(t: MapBasedTermSubstitution[L, R], x: L): Option[ITerm] =
+    t.value.get(x)
 
-    override def isubstitution(t: STARSubstitution.type): IVarSubstitution = STARSubstitution
+  override def remove(t: MapBasedTermSubstitution[L, R], x: L): ISubstitution[L, R] = {
+    val nv = t.value - x
+    isubstitution(new MapBasedTermSubstitution[L,R](nv))
+  }
 
-    override def get[X](t: STARSubstitution.type, x: X)(implicit tcx: TCVarTerm[X]): Option[ITerm] = None
-
-    override def remove[X](t: STARSubstitution.type, x: X)(implicit tcx: TCVarTerm[X]): IVarSubstitution = STARSubstitution
-
-    override def merge[S](t: STARSubstitution.type, s: S)(implicit tcs: TCVarSubstitution[S]): IVarSubstitution = t
-
-    override def empty(): Carrier = STARSubstitution
-
-    override def foldWhile[S](t: STARSubstitution.type, s0: S)(f: (S, (IVarTerm, ITerm)) => S)(p: S => Boolean): S = {
-      s0
+  override def foldWhile[S](t: MapBasedTermSubstitution[L, R], s0: S)(f: (S, (L, R)) => S)(p: S => Boolean): S = {
+    var s = s0
+    val it = t.value.iterator
+    while(it.hasNext && p(s)) {
+      val lr = it.next()
+      s = f(s,lr)
     }
-
+    s
   }
 
-  lazy val carrier = this
+  override def empty(): ISubstitution[L, R] = MapBasedTermSubstitution.empty
 
+  override def mapValues(t: MapBasedTermSubstitution[L, R], f: R => ITerm): ISubstitution[L, ITerm] = ???
 }
 
-class ContradictionSubstitution(message: => String,
-    term: ITerm = PredefinedNames.UNKNOWN,
-    prev: IVarSubstitution = STARSubstitution,
-    trace: List[ContradictionSubstitution] = Nil) extends IVarSubstitution
+
+
+class MapBasedTermSubstitution[L <: ITerm, R <: ITerm](val value:Map[L,R]) extends ISubstitution[L,R]
 {
-  override type Carrier = ContradictionSubstitution
 
-  override def carrier: Carrier = this
+   type Carrier = MapBasedTermSubstitution[L,R]
 
-  override def tcVarSubstitution: TCVarSubstitution[Carrier] = ContradictionSubstitution.TC
-}
+  override def carrier: MapBasedTermSubstitution[L, R] = this
 
-object ContradictionSubstitution
-{
-  def apply(message: => String, term: ITerm = PredefinedNames.UNKNOWN, prev: IVarSubstitution = STARSubstitution, trace: List[ContradictionSubstitution] = Nil ) =
-     new ContradictionSubstitution(message, term, prev, trace)
+  override val tcSubstitution: TCSubstitution[MapBasedTermSubstitution[L, R], L, R] =
+    new TCMapBasedTermSubstitution[L,R]
 
-  object TC extends TCVarSubstitution[ContradictionSubstitution] {
-
-    override def isubstitution(t: ContradictionSubstitution): IVarSubstitution = t
-
-    override def isContradiction(t: ContradictionSubstitution): Boolean = true
-
-    override def isStar(t: ContradictionSubstitution): Boolean = false
-
-    override def put[X, Y](t: ContradictionSubstitution, x: X, y: Y)(implicit tcx: TCVarTerm[X], tcy: TCTerm[Y]): IVarSubstitution = t
-
-    override def get[X](t: ContradictionSubstitution, x: X)(implicit tcx: TCVarTerm[X]): Option[ITerm] = None
-
-    override def remove[X](t: ContradictionSubstitution, x: X)(implicit tcx: TCVarTerm[X]): IVarSubstitution = t
-
-    override def foldWhile[S](t: ContradictionSubstitution, s0: S)(f: (S, (IVarTerm, ITerm)) => S)(p: S => Boolean): S
-       = s0
-  }
 
 }
 
+object MapBasedTermSubstitution {
 
+  val _empty: ISubstitution[ITerm,ITerm] = new MapBasedTermSubstitution[ITerm,ITerm](Map.empty)
 
-
-object Substitution {
-
-  val STAR = STARSubstitution
-
-  def contradiction(message: => String = "mismatch",
-      term: ITerm = PredefinedNames.UNKNOWN,
-      prev: IVarSubstitution = STARSubstitution,
-      trace: List[ContradictionSubstitution] = Nil) =
-     new ContradictionSubstitution(message, term, prev, trace)
+  def empty[L<:ITerm,R<:ITerm] = _empty.asInstanceOf[MapBasedTermSubstitution[L,R]]
 
 }

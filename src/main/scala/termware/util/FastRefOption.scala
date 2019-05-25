@@ -19,6 +19,12 @@ class FastRefOption[+T <: AnyRef](val value:T) extends AnyVal {
     } else value
   }
 
+  def orElse[S >:T <: AnyRef ](df: =>FastRefOption[S]): FastRefOption[S] = {
+    if (isEmpty) {
+      df
+    } else this
+  }
+
   def map[S <: AnyRef](f: T => S): FastRefOption[S] =
     if (isEmpty) FastRefOption.empty else FastRefOption(f(value)) 
   
@@ -26,7 +32,8 @@ class FastRefOption[+T <: AnyRef](val value:T) extends AnyVal {
     if (isEmpty) FastRefOption.empty
     else f(value)
   }
-  
+
+
 }
 
 
@@ -59,7 +66,11 @@ object FastRefOption
        }
     }
   }
-  
+
+  implicit class FastRefSomeSyntax[A<:AnyRef](val x:A) extends AnyVal {
+    def   fsome: FastRefOption[A] = FastRefOption(x)
+  }
+
 }
 
 

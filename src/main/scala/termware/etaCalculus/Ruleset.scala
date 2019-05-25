@@ -1,6 +1,6 @@
 package termware.etaCalculus
 
-
+import scala.language.higherKinds
 
 trait ITermTransformer {
 

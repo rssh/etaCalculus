@@ -39,21 +39,27 @@ trait TCName[T] extends TCTerm[T]
 
   override def tcPrimitive(t: T): FastRefOption[TCPrimitive[T]] = FastRefOption.empty
 
-  override def leftUnifyInSubst(t: T, s: IVarSubstitution, o: ITerm): IVarSubstitution = {
+  override def tcError(t: T): FastRefOption[TCErrorTerm[T]] = FastRefOption.empty
+
+  override def tcEta(t: T): FastRefOption[TCEtaTerm[T]] = FastRefOption.empty
+
+  override def tcStructured(t: T): FastRefOption[TCStructured[T]] = FastRefOption.empty
+
+  override def leftUnifyInSubst(t: T, s: ISubstitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
      o.asName match {
        case FastRefOption.Some(otherName) =>
               if (compare(t,otherName) == 0) {
-                Substitution.STAR
+                UnificationSuccess(s)
               } else {
-                Substitution.contradiction()
+                UnificationFailure("name mismatch",iname(t),otherName,None,s)
               }
        case FastRefOption.Empty(_) =>
-                Substitution.contradiction(s"match failer: ${t} ${o}")
+                UnificationFailure("not name in right part",iname(t),o,None,s)
      }
   }
 
-  override def substVars(t:T, s: IVarSubstitution): ITerm = iname(t)
-
+  override def substVars(t:T, s: ISubstitution[IVarTerm,ITerm]): ITerm = iname(t)
+  override def mapVars(t: T, f: IVarTerm => ITerm): ITerm = iname(t)
 
 
 }
@@ -100,6 +106,14 @@ trait IName extends ITerm
   def  valueString: String = tcName.valueString(carrier)
 
   def  value: Value = tcName.value(carrier).asInstanceOf[Value]
+
+  override def transform[B](matcher: TermKindMatcher[B]): B = matcher.onName(this)
+
+}
+
+object IName {
+
+  def unapply(arg: ITerm): FastRefOption[IName] = arg.asName()
 
 }
 

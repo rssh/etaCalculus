@@ -20,26 +20,32 @@ trait TCPrimitive[T] extends TCTerm[T]
 
   override def tcPrimitive(t: T): FastRefOption[TCPrimitive[T]] = FastRefOption(this)
 
+  override def tcError(t: T): FastRefOption[TCErrorTerm[T]] = FastRefOption.empty
 
-  override def leftUnifyInSubst(t: T, s: IVarSubstitution, o: ITerm): IVarSubstitution = {
+  override def tcStructured(t: T): FastRefOption[TCStructured[T]] = FastRefOption.empty
+
+  override def tcEta(t: T): FastRefOption[TCEtaTerm[T]] = FastRefOption.empty
+
+  override def leftUnifyInSubst(t: T, s: ISubstitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
      o.asPrimitive match {
        case FastRefOption.Some(otherPrimitive) =>
          if (primitiveTypeIndex(t) == otherPrimitive.primitiveTypeIndex) {
            if (valueEqual(t,otherPrimitive.carrier.asInstanceOf[T])) {
-             s
+             UnificationSuccess(s)
            } else {
-             ContradictionSubstitution(s"mismatch with ${o}",iterm(t),s)
+             UnificationFailure(s"value mismatch",iterm(t),o,None,s)
            }
          } else {
-           ContradictionSubstitution("mismatch: other primitive index",iterm(t),s)
+           UnificationFailure(s"other primitive index",iterm(t),o,None,s)
          }
        case other =>
-         ContradictionSubstitution(s"mismatch: non-primitive ${o}",iterm(t),s)
+         UnificationFailure(s"unification value with non-value",iterm(t),o,None,s)
      }
   }
 
-  override def substVars(t: T, s: IVarSubstitution): ITerm = iprimitive(t)
+  override def substVars(t: T, s: ISubstitution[IVarTerm,ITerm]): ITerm = iprimitive(t)
 
+  override def mapVars(t: T, f: IVarTerm => ITerm): ITerm = iprimitive(t)
 
 }
 
@@ -61,6 +67,13 @@ trait IPrimitive extends ITerm
 
   def  primitiveTypeIndex: Int = tcPrimitive.primitiveTypeIndex(carrier)
 
+  override def transform[B](matcher: TermKindMatcher[B]): B = matcher.onPrimitive(this)
+
+}
+
+object IPrimitive {
+
+  def unapply(arg: ITerm): FastRefOption[IPrimitive] = arg.asPrimitive()
 
 }
 
