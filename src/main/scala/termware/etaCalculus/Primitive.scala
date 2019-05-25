@@ -26,7 +26,7 @@ trait TCPrimitive[T] extends TCTerm[T]
 
   override def tcEta(t: T): FastRefOption[TCEtaTerm[T]] = FastRefOption.empty
 
-  override def leftUnifyInSubst(t: T, s: ISubstitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
+  override def leftUnifyInSubst(t: T, s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
      o.asPrimitive match {
        case FastRefOption.Some(otherPrimitive) =>
          if (primitiveTypeIndex(t) == otherPrimitive.primitiveTypeIndex) {
@@ -43,7 +43,7 @@ trait TCPrimitive[T] extends TCTerm[T]
      }
   }
 
-  override def substVars(t: T, s: ISubstitution[IVarTerm,ITerm]): ITerm = iprimitive(t)
+  override def substVars(t: T, s: Substitution[IVarTerm,ITerm]): ITerm = iprimitive(t)
 
   override def mapVars(t: T, f: IVarTerm => ITerm): ITerm = iprimitive(t)
 

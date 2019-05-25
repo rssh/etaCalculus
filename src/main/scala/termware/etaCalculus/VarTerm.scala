@@ -12,7 +12,7 @@ trait TCVarTerm[T] extends TCTerm[T]
 
   def ivar(t:T): IVarTerm = CVarTerm(t,this)
 
-  override def leftUnifyInSubst(t: T, s: ISubstitution[IVarTerm, ITerm], o: ITerm): UnificationResult = {
+  override def leftUnifyInSubst(t: T, s: Substitution[IVarTerm, ITerm], o: ITerm): UnificationResult = {
      o.asVar() match {
        case FastRefOption.Some(otherVar) =>
          if (otherVar.ownerRef == ownerRef(t)
@@ -28,7 +28,7 @@ trait TCVarTerm[T] extends TCTerm[T]
   }
 
 
-  override def substVars(t: T, s: ISubstitution[IVarTerm,ITerm]): ITerm = {
+  override def substVars(t: T, s: Substitution[IVarTerm,ITerm]): ITerm = {
     val v = ivar(t)
     s.getOrElse(v,v)
   }
@@ -110,7 +110,7 @@ class PlainVarTerm(override val owner: IEtaTerm, override val name: IName) exten
 
   override def tcVarTerm: TCVarTerm[PlainVarTerm] = TCPlainVarTerm
 
-  override def substVars(s: ISubstitution[IVarTerm,ITerm]): ITerm = {
+  override def substVars(s: Substitution[IVarTerm,ITerm]): ITerm = {
     s.getOrElse(this,this)
   }
 

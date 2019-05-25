@@ -6,9 +6,9 @@ trait TCEtaTerm[T] extends TCTerm[T] {
 
   def ieta(t:T): IEtaTerm
 
-  def context(t:T): ISubstitution[IName,ITerm]
+  def context(t:T): Substitution[IName,ITerm]
 
-  def etaModify(t:T, f: ISubstitution[IName,ITerm] => ISubstitution[IName,ITerm]): T
+  def etaModify(t:T, f: Substitution[IName,ITerm] => Substitution[IName,ITerm]): T
 
   def resolve(t:T, n:IName): Option[ITerm]
     = context(t).get(n)
@@ -29,13 +29,13 @@ trait IEtaTerm extends ITerm
 
   def carrier: Carrier
 
-  def context(): ISubstitution[IName,ITerm] = tcEtaTerm.context(carrier)
+  def context(): Substitution[IName,ITerm] = tcEtaTerm.context(carrier)
 
   def baseTerm(): ITerm = tcEtaTerm.baseTerm(carrier)
 
   override def transform[B](matcher: TermKindMatcher[B]): B = matcher.onEta(this)
 
-  def etaModify(f: ISubstitution[IName,ITerm] => ISubstitution[IName,ITerm]): IEtaTerm =
+  def etaModify(f: Substitution[IName,ITerm] => Substitution[IName,ITerm]): IEtaTerm =
     tcEtaTerm.ieta(tcEtaTerm.etaModify(carrier,f))
 
   def resolve(n:IName) = tcEtaTerm.resolve(carrier,n)
@@ -58,7 +58,7 @@ object IEtaTerm {
 
   def unapply(arg: ITerm): FastRefOption[IEtaTerm] = arg.asEta()
 
-  def create(prevOwner: IEtaTerm, nextOwner: IEtaTerm, context: ISubstitution[IName,ITerm], baseTerm: ITerm): IEtaTerm = {
+  def create(prevOwner: IEtaTerm, nextOwner: IEtaTerm, context: Substitution[IName,ITerm], baseTerm: ITerm): IEtaTerm = {
     ???
   }
 
@@ -105,7 +105,7 @@ class VarOwnerChangeTransformer(owners: Map[IdentityRef[IEtaTerm],IEtaTerm]) ext
   override def onEta(eta: IEtaTerm): ITerm = {
     new PlainEtaTerm(
       new PlainEtaInitTransformers {
-        override def contextTransformation(oldContext: ISubstitution[IName, ITerm]): ISubstitution[IName, ITerm] =
+        override def contextTransformation(oldContext: Substitution[IName, ITerm]): Substitution[IName, ITerm] =
           oldContext.mapValues(_.transform(thisVarOwnerChangeTransformer))
 
         override def bodyTransformer(self: PlainEtaTerm, oldBody: ITerm): ITerm = {
@@ -125,7 +125,7 @@ class VarOwnerChangeTransformer(owners: Map[IdentityRef[IEtaTerm],IEtaTerm]) ext
 
 trait PlainEtaInitTransformers {
 
-  def contextTransformation(oldContext: ISubstitution[IName,ITerm]): ISubstitution[IName,ITerm]
+  def contextTransformation(oldContext: Substitution[IName,ITerm]): Substitution[IName,ITerm]
 
   def bodyTransformer(self: PlainEtaTerm, oldBody: ITerm): ITerm
 
@@ -135,10 +135,10 @@ object TCPlainEtaTerm extends TCEtaTerm[PlainEtaTerm] {
 
   override def ieta(t: PlainEtaTerm): IEtaTerm = t
 
-  override def context(t: PlainEtaTerm): ISubstitution[IName, ITerm] =
+  override def context(t: PlainEtaTerm): Substitution[IName, ITerm] =
     t.context
 
-  override def etaModify(t: PlainEtaTerm, f: ISubstitution[IName, ITerm] => ISubstitution[IName, ITerm]): PlainEtaTerm
+  override def etaModify(t: PlainEtaTerm, f: Substitution[IName, ITerm] => Substitution[IName, ITerm]): PlainEtaTerm
    = t.etaModify(f)
 
   override def resolve(t: PlainEtaTerm, n: IName): Option[ITerm] =
@@ -162,13 +162,13 @@ object TCPlainEtaTerm extends TCEtaTerm[PlainEtaTerm] {
 
   override def tcError(t: PlainEtaTerm): FastRefOption[TCErrorTerm[PlainEtaTerm]] = ???
 
-  override def leftUnifyInSubst(t: PlainEtaTerm, s: ISubstitution[IVarTerm, ITerm], o: ITerm): UnificationResult = ???
+  override def leftUnifyInSubst(t: PlainEtaTerm, s: Substitution[IVarTerm, ITerm], o: ITerm): UnificationResult = ???
 }
 
 
 class PlainEtaTerm(
     initTransformers: PlainEtaInitTransformers,
-    iniContext: ISubstitution[IName,ITerm],
+    iniContext: Substitution[IName,ITerm],
     iniBaseTerm: ITerm
    ) extends IEtaTerm {
 
@@ -185,10 +185,10 @@ class PlainEtaTerm(
 
   override def tcEtaTerm: TCEtaTerm[PlainEtaTerm] = TCPlainEtaTerm
 
-  override def etaModify(f: ISubstitution[IName, ITerm] => ISubstitution[IName, ITerm]): PlainEtaTerm =
+  override def etaModify(f: Substitution[IName, ITerm] => Substitution[IName, ITerm]): PlainEtaTerm =
     new PlainEtaTerm(
       new PlainEtaInitTransformers {
-        override def contextTransformation(oldContext: ISubstitution[IName, ITerm]): ISubstitution[IName, ITerm] =
+        override def contextTransformation(oldContext: Substitution[IName, ITerm]): Substitution[IName, ITerm] =
           f(oldContext)
 
         override def bodyTransformer(self: PlainEtaTerm, oldBody: ITerm): ITerm = ???

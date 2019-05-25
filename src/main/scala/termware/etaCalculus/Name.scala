@@ -45,7 +45,7 @@ trait TCName[T] extends TCTerm[T]
 
   override def tcStructured(t: T): FastRefOption[TCStructured[T]] = FastRefOption.empty
 
-  override def leftUnifyInSubst(t: T, s: ISubstitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
+  override def leftUnifyInSubst(t: T, s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
      o.asName match {
        case FastRefOption.Some(otherName) =>
               if (compare(t,otherName) == 0) {
@@ -58,7 +58,7 @@ trait TCName[T] extends TCTerm[T]
      }
   }
 
-  override def substVars(t:T, s: ISubstitution[IVarTerm,ITerm]): ITerm = iname(t)
+  override def substVars(t:T, s: Substitution[IVarTerm,ITerm]): ITerm = iname(t)
   override def mapVars(t: T, f: IVarTerm => ITerm): ITerm = iname(t)
 
 

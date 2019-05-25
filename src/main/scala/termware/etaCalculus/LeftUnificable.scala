@@ -4,7 +4,7 @@ object ILeftUnificable {
 
   val STAR = AnyLeftUnificable
 
-  def putOrMerge(s: ISubstitution[IVarTerm,ITerm], k: IVarTerm, v: ITerm): UnificationResult = {
+  def putOrMerge(s: Substitution[IVarTerm,ITerm], k: IVarTerm, v: ITerm): UnificationResult = {
     s.get(k) match {
       case None => UnificationSuccess(s.update(k,v))
       case Some(v1) =>
@@ -17,7 +17,7 @@ object ILeftUnificable {
 
 trait TCLeftUnificable[T] {
 
-  def leftUnifyInSubst(t: T, s:ISubstitution[IVarTerm,ITerm], o: ITerm): UnificationResult
+  def leftUnifyInSubst(t: T, s:Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult
 
 
 
@@ -25,7 +25,7 @@ trait TCLeftUnificable[T] {
 
 trait ILeftUnificable {
 
-  def leftUnifyInSubst(s:ISubstitution[IVarTerm,ITerm], o: ITerm): UnificationResult
+  def leftUnifyInSubst(s:Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult
 
 
 }
@@ -33,6 +33,6 @@ trait ILeftUnificable {
 
 object AnyLeftUnificable extends ILeftUnificable
 {
-  override def leftUnifyInSubst(s: ISubstitution[IVarTerm,ITerm], o: ITerm): UnificationResult = UnificationSuccess(s)
+  override def leftUnifyInSubst(s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = UnificationSuccess(s)
 }
 

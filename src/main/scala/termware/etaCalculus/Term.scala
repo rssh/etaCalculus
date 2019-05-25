@@ -7,7 +7,7 @@ trait TCTerm[T] extends TCLeftUnificable[T] {
 
    def iterm(t:T):ITerm = CTerm(t,this)
 
-   def substVars(t:T, s: ISubstitution[IVarTerm,ITerm]): ITerm = {
+   def substVars(t:T, s: Substitution[IVarTerm,ITerm]): ITerm = {
      mapVars(t, v => s.getOrElse(v,v))
    }
 
@@ -78,11 +78,11 @@ trait ITerm extends ILeftUnificable
 
   def transform[B](matcher: TermKindMatcher[B]):B
 
-  def leftUnifyInSubst(s: ISubstitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
+  def leftUnifyInSubst(s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
     tcTerm.leftUnifyInSubst(carrier,s,o)
   }
 
-  def substVars(s: ISubstitution[IVarTerm,ITerm]): ITerm = {
+  def substVars(s: Substitution[IVarTerm,ITerm]): ITerm = {
     tcTerm.substVars(carrier,s)
   }
 

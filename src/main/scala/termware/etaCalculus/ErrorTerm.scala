@@ -11,11 +11,11 @@ trait TCErrorTerm[T] extends TCTerm[T] {
 
   def traceData(t:T): Any
 
-  override def leftUnifyInSubst(t: T, s: ISubstitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
+  override def leftUnifyInSubst(t: T, s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
     UnificationFailure("attempt to unify error",iterm(t),o,None,s)
   }
 
-  override def substVars(t: T, s: ISubstitution[IVarTerm,ITerm]): ITerm = ierror(t)
+  override def substVars(t: T, s: Substitution[IVarTerm,ITerm]): ITerm = ierror(t)
   override def mapVars(t:T, f: IVarTerm => ITerm): ITerm = ierror(t)
 
   override def tcError(t: T): FastRefOption[TCErrorTerm[T]] = FastRefOption(this)

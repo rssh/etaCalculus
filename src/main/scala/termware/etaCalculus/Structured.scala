@@ -142,7 +142,7 @@ object TCPlainStructured extends TCStructured[PlainStructured]
     var wasChanged = false
     var r: ITerm = t
     var newSubterms: Array[ITerm] = null
-    var cs: ISubstitution[IVarTerm,ITerm] = MapBasedVarSubstitution.empty
+    var cs: Substitution[IVarTerm,ITerm] = MapBasedVarSubstitution.empty
     while(i < arity(t) && !wasError) {
       val prev = t.subterms(i)
       val nSubterm = prev.mapVars(f)
@@ -172,7 +172,7 @@ object TCPlainStructured extends TCStructured[PlainStructured]
     }
   }
 
-  override def substVars(t: Carrier, s: ISubstitution[IVarTerm,ITerm]): ITerm = {
+  override def substVars(t: Carrier, s: Substitution[IVarTerm,ITerm]): ITerm = {
     var i=0
     var wasError = false
     var wasChanged = false
@@ -213,7 +213,7 @@ object TCPlainStructured extends TCStructured[PlainStructured]
   }
 
 
-  override def leftUnifyInSubst(t: Carrier, s: ISubstitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
+  override def leftUnifyInSubst(t: Carrier, s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
     o match {
       case IStructured(otherStructured) =>
         name(t).leftUnifyInSubst(s,otherStructured.name()) match {
@@ -237,7 +237,7 @@ object TCPlainStructured extends TCStructured[PlainStructured]
 
 
   @tailrec
-  private def unifySubterms(carrier: Carrier, s: ISubstitution[IVarTerm, ITerm], structured: IStructured, i: Int): UnificationResult = {
+  private def unifySubterms(carrier: Carrier, s: Substitution[IVarTerm, ITerm], structured: IStructured, i: Int): UnificationResult = {
     if (i==arity(carrier)) {
       UnificationSuccess(s)
     } else {
@@ -367,7 +367,7 @@ object TCStructuredEtaRepresentation extends TCStructured[StructuredEtaRepresent
 
   override def mapVars(t: StructuredEtaRepresentation, f: IVarTerm => ITerm): ITerm = ???
 
-  override def leftUnifyInSubst(t: StructuredEtaRepresentation, s: ISubstitution[IVarTerm,ITerm], o: ITerm): UnificationResult = ???
+  override def leftUnifyInSubst(t: StructuredEtaRepresentation, s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = ???
 
   override def mapSubterms(t: StructuredEtaRepresentation, f: ITerm => ITerm): ITerm = ???
 }
