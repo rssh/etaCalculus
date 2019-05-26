@@ -51,6 +51,9 @@ trait IEtaTerm extends ITerm
     } else false
   }
 
+  override final def hashCode(): Int = {
+    System.identityHashCode(this)
+  }
 
 }
 
@@ -84,14 +87,14 @@ case object SelfRef extends VarOwner {
   override def fromSelf(self: IEtaTerm): IEtaTerm = self
 }
 
-class VarOwnerChangeTransformer(owners: Map[IdentityRef[IEtaTerm],IEtaTerm]) extends TermKindMatcher[ITerm] {
+class VarOwnerChangeTransformer(owners: Map[IEtaTerm,IEtaTerm]) extends TermKindMatcher[ITerm] {
 
   thisVarOwnerChangeTransformer =>
 
   override def onName(name: IName): ITerm = name
 
   override def onVar(varTerm: IVarTerm): ITerm =
-    owners.get(varTerm.ownerRef) match {
+    owners.get(varTerm.owner) match {
       case Some(changed) => PlainVarTerm(changed,varTerm.name)
       case None => varTerm
     }
@@ -109,7 +112,7 @@ class VarOwnerChangeTransformer(owners: Map[IdentityRef[IEtaTerm],IEtaTerm]) ext
           oldContext.mapValues(_.transform(thisVarOwnerChangeTransformer))
 
         override def bodyTransformer(self: PlainEtaTerm, oldBody: ITerm): ITerm = {
-          val nOwners = owners.updated(new IdentityRef(eta), self)
+          val nOwners = owners.updated(eta, self)
           oldBody.transform(new VarOwnerChangeTransformer(nOwners))
         }
 
@@ -196,8 +199,5 @@ class PlainEtaTerm(
       context,
       baseTerm
     )
-
-
-
 
 }

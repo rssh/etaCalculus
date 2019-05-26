@@ -341,9 +341,21 @@ object PlainStructured {
     }
   }
 
-  def freeMetainfo(name:String, subtermNames: String*) = ???
+  def freeMetainfo(name:String, subtermNames: String*): StructuredMetainfo = {
+    val metas = subtermNames.zipWithIndex.map{ case (name,index) =>StructuredComponent(StringName(name),index) }
+    createMetainfo(name,metas)
+  }
 
+  def freeNamed(name:String,byName:(String,ITerm)*): ITerm = {
+    val metaInfo = freeMetainfo(name,byName.map(_._1): _*)
+    new PlainStructured(metaInfo, byName.map(_._2).toIndexedSeq)
+  }
 
+  def freeIndexed(name:String, byIndex: ITerm*): ITerm = {
+    val metas = (0 until byIndex.length).map(i => StructuredComponent(IntName(i),i))
+    val metaInfo = createMetainfo(name,metas)
+    new PlainStructured(metaInfo, byIndex.toIndexedSeq)
+  }
 
 }
 

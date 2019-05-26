@@ -1,5 +1,6 @@
 package termware.etaCalculus
 
+import termware.etaCalculus.IntName.TC
 import termware.util.FastRefOption
 
 
@@ -86,7 +87,7 @@ object TCName {
     override def compareSame(t: String, other: String): Int = t.compare(other)
 
   }
- 
+
 
 }
 
@@ -155,6 +156,39 @@ object StringName {
 
 }
 
+case class IntName(override val value: Int) extends IName {
 
+  type Carrier = IntName
+
+  type Value = Int
+
+  override def carrier: IntName = this
+  override def tcName: TCName[IntName] = IntName.TC
+
+}
+
+object IntName {
+
+  object TC extends TCName[IntName] {
+
+    type V = Int
+
+    /**
+      * nameTypeIndex. same typeIndex => same V
+      *
+      * @param t
+      * @return
+      */
+    override def nameTypeIndex(t: IntName): Int = 2
+    override def valueHash(t: IntName): Int = t.value
+    override def valueString(t: IntName): String = t.value.toString
+    override def value(t: IntName): Int = t.value
+    override def iname(t: IntName): IName = t
+    override def compareSame(t: IntName, other: Int): Int = t.value - other
+
+
+  }
+
+}
 
 

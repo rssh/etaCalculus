@@ -48,7 +48,6 @@ trait TCVarTerm[T] extends TCTerm[T]
   override def tcEta(t: T): FastRefOption[TCEtaTerm[T]] = FastRefOption.empty
   override def tcError(t: T): FastRefOption[TCErrorTerm[T]] = FastRefOption.empty
 
-
 }
 
 
@@ -70,8 +69,6 @@ trait IVarTerm extends ITerm {
   def ownerRef: IdentityRef[IEtaTerm] = tcVarTerm.ownerRef(carrier)
 
   override def transform[B](matcher: TermKindMatcher[B]): B = matcher.onVar(this)
-
-
 
   override def equals(obj: scala.Any): Boolean = {
       if (obj.isInstanceOf[IVarTerm]) {
