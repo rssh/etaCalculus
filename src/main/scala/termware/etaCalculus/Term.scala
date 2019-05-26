@@ -96,7 +96,7 @@ trait ITerm extends ILeftUnificable
 
 }
 
-object ITerm {
+object ITerm extends ITermConversions {
 
   type Aux[T] = ITerm{ type Carrier = T }
 

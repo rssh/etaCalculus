@@ -58,18 +58,25 @@ object FastRefOption
   }
 
   object Empty {
-    def unapply[T <: AnyRef](arg: FastRefOption[T]): FastRefOption[Empty.type] = {
-       if (arg.isEmpty) {
-         FastRefOption(Empty)
-       } else {
-         FastRefOption.empty
-       }
+    def unapply[T <: AnyRef](arg: FastRefOption[T]): Boolean = {
+       (arg.isEmpty)
     }
   }
+
+
 
   implicit class FastRefSomeSyntax[A<:AnyRef](val x:A) extends AnyVal {
     def   fsome: FastRefOption[A] = FastRefOption(x)
   }
+
+  implicit def fromOption[T <: AnyRef](x:Option[T]): FastRefOption[T] = {
+    x match {
+      case scala.Some(v) => new FastRefOption(v)
+      case None => FastRefOption.empty
+    }
+  }
+
+
 
 }
 

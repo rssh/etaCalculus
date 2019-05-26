@@ -1,6 +1,5 @@
 package termware.etaCalculus
 
-import termware.etaCalculus.IntName.TC
 import termware.util.FastRefOption
 
 
@@ -54,7 +53,7 @@ trait TCName[T] extends TCTerm[T]
               } else {
                 UnificationFailure("name mismatch",iname(t),otherName,None,s)
               }
-       case FastRefOption.Empty(_) =>
+       case FastRefOption.Empty() =>
                 UnificationFailure("not name in right part",iname(t),o,None,s)
      }
   }

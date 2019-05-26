@@ -11,7 +11,7 @@ class FastRefOptionTest extends FunSuite {
     assert(!optterm.isDefined)
     optterm match {
       case FastRefOption.Some(x) => assert(false)
-      case FastRefOption.Empty(x) => // all ok
+      case FastRefOption.Empty() => // all ok
     }
   }
 
@@ -21,9 +21,16 @@ class FastRefOptionTest extends FunSuite {
     assert(optterm.isDefined)
     optterm match {
       case FastRefOption.Some(x) => assert(x.asName().get().valueString == "A")
-      case FastRefOption.Empty(_) => assert(false)
+      case FastRefOption.Empty() => assert(false)
     }
   }
 
+  // https://github.com/scala/bug/issues/7396
+  test("FastRefOption should have hashcode [scalac https://github.com/scala/bug/issues/7396]") {
+    pending
+    val optterm: FastRefOption[ITerm] = FastRefOption.empty
+    val h = optterm.hashCode()
+    assert(h != 0)
+  }
 
 }

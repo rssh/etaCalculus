@@ -6,8 +6,8 @@ class SubstVarTest extends FunSuite {
 
 
 
-  test("substitute vars in simple structured term") {
-      val st = IStructured
-  }
+  //test("substitute vars in simple structured term") {
+  //    val st1 = PlainStructured.freeIndexed("a")
+  //}
 
 }

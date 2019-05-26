@@ -7,7 +7,7 @@ import scala.annotation.tailrec
 case class StructuredComponent(
     name:IName,
     index:Int = -1,
-    defValue: FastRefOption[ITerm] = FastRefOption.empty,
+    defValue: Option[ITerm] = None,  //can't be valuetype: see https://github.com/scala/bug/issues/7396
     constraint: ILeftUnificable = ILeftUnificable.STAR)
 
 
@@ -251,7 +251,7 @@ object TCPlainStructured extends TCStructured[PlainStructured]
                 case failure: UnificationFailure =>
                   UnificationFailure(s"mismatched subterm ${leftMeta.name}",istructured(carrier),structured,Some(failure),s)
               }
-            case FastRefOption.Empty(e) =>
+            case FastRefOption.Empty() =>
               // No name and no default value
               UnificationFailure(s"Can't find component with name ${leftMeta.name}",istructured(carrier),structured,None,s)
           }
@@ -267,7 +267,7 @@ object TCPlainStructured extends TCStructured[PlainStructured]
 
 case class StructuredMetainfo(name: IName, components: IndexedSeq[StructuredComponent], nameIndexes:Map[IName,Int])
 
-class PlainStructured(val metainfo: StructuredMetainfo,
+case class PlainStructured(val metainfo: StructuredMetainfo,
     val subterms: IndexedSeq[ITerm]) extends IStructured
 {
 
