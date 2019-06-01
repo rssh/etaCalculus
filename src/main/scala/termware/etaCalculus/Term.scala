@@ -7,38 +7,27 @@ trait TCTerm[T] extends TCLeftUnificable[T] {
 
    def iterm(t:T):ITerm = CTerm(t,this)
 
-   def substVars(t:T, s: Substitution[IVarTerm,ITerm]): ITerm = {
-     mapVars(t, v => s.getOrElse(v,v))
+   def substVars(t:T, s: Substitution[IVarTerm,ITerm], vo:Map[IEtaTerm,IEtaTerm]): ITerm = {
+     mapVars(t, v => s.getOrElse(v,v), vo )
    }
 
-   def mapVars(t:T, f: IVarTerm => ITerm): ITerm
+   def mapVars(t:T, f: IVarTerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm
 
    //def subst[N<:ITerm, V<:ITerm](t:T, s: ISubstitution[N,V]): ITerm
 
    //def mapTerms(t:T, f: ITerm => ITerm): ITerm
 
    def tcName(t: T): FastRefOption[TCName[T]]
-
    def isName(t: T): Boolean = tcName(t).isDefined
-
    def tcVar(t:T): FastRefOption[TCVarTerm[T]]
-
    def isVar(t:T): Boolean = tcVar(t).isDefined
-
    def tcPrimitive(t:T): FastRefOption[TCPrimitive[T]]
-
    def isPrimitive(t:T): Boolean = tcPrimitive(t).isDefined
-
    def tcStructured(t:T): FastRefOption[TCStructured[T]]
-
    def isStructured(t:T): Boolean = tcStructured(t).isDefined
-
    def tcEta(t:T): FastRefOption[TCEtaTerm[T]]
-
    def isEta(t:T): Boolean = tcEta(t).isDefined
-
    def tcError(t:T): FastRefOption[TCErrorTerm[T]]
-
    def isError(t:T): Boolean = tcError(t).isDefined
 
 }
@@ -76,18 +65,18 @@ trait ITerm extends ILeftUnificable
 
   def asError(): FastRefOption[IErrorTerm] = tcTerm.tcError(carrier).map(_.ierror(carrier))
 
-  def transform[B](matcher: TermKindMatcher[B]):B
+  def transform[B](matcher: TermKindTransformer[B], vo: Map[IEtaTerm,IEtaTerm]):B
 
   def leftUnifyInSubst(s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
     tcTerm.leftUnifyInSubst(carrier,s,o)
   }
 
-  def substVars(s: Substitution[IVarTerm,ITerm]): ITerm = {
-    tcTerm.substVars(carrier,s)
+  def substVars(s: Substitution[IVarTerm,ITerm], vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
+    tcTerm.substVars(carrier,s,vo)
   }
 
-  def mapVars(f: IVarTerm => ITerm): ITerm = {
-    tcTerm.mapVars(carrier,f)
+  def mapVars(f: IVarTerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
+    tcTerm.mapVars(carrier,f, vo)
   }
 
   //def subst[N<:ITerm,V<:ITerm](s:ISubstitution[N,V]): ITerm = {
@@ -110,15 +99,15 @@ case class CTerm[T](t:T,tc:TCTerm[T]) extends ITerm
 
    def carrier: Carrier = t
 
-  override def transform[B](matcher: TermKindMatcher[B]): B = {
+  override def transform[B](matcher: TermKindTransformer[B], vo: Map[IEtaTerm,IEtaTerm]): B = {
     // need to be reviewed after adding of each term type
     this match {
-      case IName(x) => matcher.onName(x)
-      case IPrimitive(x) => matcher.onPrimitive(x)
-      case IVarTerm(x) => matcher.onVar(x)
-      case IEtaTerm(x) => matcher.onEta(x)
-      case IStructured(x) => matcher.onStructured(x)
-      case IErrorTerm(x) => matcher.onError(x)
+      case IName(x) => matcher.onName(x,vo)
+      case IPrimitive(x) => matcher.onPrimitive(x,vo)
+      case IVarTerm(x) => matcher.onVar(x,vo)
+      case IEtaTerm(x) => matcher.onEta(x,vo)
+      case IStructured(x) => matcher.onStructured(x,vo)
+      case IErrorTerm(x) => matcher.onError(x,vo)
     }
 
   }

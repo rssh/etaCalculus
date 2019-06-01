@@ -54,7 +54,6 @@ object FastRefOption
       arg
     }
 
-    
   }
 
   object Empty {

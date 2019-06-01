@@ -15,8 +15,8 @@ trait TCErrorTerm[T] extends TCTerm[T] {
     UnificationFailure("attempt to unify error",iterm(t),o,None,s)
   }
 
-  override def substVars(t: T, s: Substitution[IVarTerm,ITerm]): ITerm = ierror(t)
-  override def mapVars(t:T, f: IVarTerm => ITerm): ITerm = ierror(t)
+  override def substVars(t: T, s: Substitution[IVarTerm,ITerm], vo:Map[IEtaTerm,IEtaTerm]): ITerm = ierror(t)
+  override def mapVars(t:T, f: IVarTerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm = ierror(t)
 
   override def tcError(t: T): FastRefOption[TCErrorTerm[T]] = FastRefOption(this)
   override def tcName(t: T): FastRefOption[TCName[T]] = FastRefOption.empty
@@ -34,8 +34,8 @@ trait IErrorTerm extends ITerm {
 
   def tcError: TCErrorTerm[Carrier]
 
-  override def transform[B](matcher: TermKindMatcher[B]): B = {
-    matcher.onError(this)
+  override def transform[B](matcher: TermKindTransformer[B], vo:Map[IEtaTerm,IEtaTerm]): B = {
+    matcher.onError(this,vo)
   }
 
 }

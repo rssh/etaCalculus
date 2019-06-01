@@ -27,19 +27,29 @@ trait TCVarTerm[T] extends TCTerm[T]
      }
   }
 
-
-  override def substVars(t: T, s: Substitution[IVarTerm,ITerm]): ITerm = {
-    val v = ivar(t)
-    s.getOrElse(v,v)
+  def fixOwner(v:IVarTerm,vo:Map[IEtaTerm,IEtaTerm]):IVarTerm = {
+    vo.get(v.owner) match {
+      case Some(x) => v.changeOwner(x)
+      case None => v
+    }
   }
 
-  override def mapVars(t: T, f: IVarTerm => ITerm): ITerm = {
-    f(ivar(t))
+  override def substVars(t: T, s: Substitution[IVarTerm,ITerm], vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
+    val v = ivar(t)
+    s.get(v) match {
+      case Some(t) => t.transform(VarOwnerChangeTransformer,vo)
+      case None => fixOwner(v,vo)
+    }
+  }
+
+  override def mapVars(t: T, f: IVarTerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm = {
+    f(ivar(t)).transform(VarOwnerChangeTransformer,vo)
   }
 
   def ownerRef(t:T): IdentityRef[IEtaTerm] =
     new IdentityRef[IEtaTerm](owner(t))
 
+  def changeOwner(t:T, newOwner: IEtaTerm): IVarTerm
 
   override def tcName(t: T): FastRefOption[TCName[T]] = FastRefOption.empty
   override def tcVar(t: T): FastRefOption[TCVarTerm[T]] = FastRefOption(this)
@@ -68,7 +78,9 @@ trait IVarTerm extends ITerm {
 
   def ownerRef: IdentityRef[IEtaTerm] = tcVarTerm.ownerRef(carrier)
 
-  override def transform[B](matcher: TermKindMatcher[B]): B = matcher.onVar(this)
+  def changeOwner(newOwner: IEtaTerm): IVarTerm = tcVarTerm.changeOwner(carrier,newOwner)
+
+  override def transform[B](matcher: TermKindTransformer[B], vo:Map[IEtaTerm,IEtaTerm]): B = matcher.onVar(this,vo)
 
   override def equals(obj: scala.Any): Boolean = {
       if (obj.isInstanceOf[IVarTerm]) {
@@ -107,10 +119,19 @@ class PlainVarTerm(override val owner: IEtaTerm, override val name: IName) exten
 
   override def tcVarTerm: TCVarTerm[PlainVarTerm] = TCPlainVarTerm
 
-  override def substVars(s: Substitution[IVarTerm,ITerm]): ITerm = {
-    s.getOrElse(this,this)
+  override def substVars(s: Substitution[IVarTerm,ITerm], vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
+    s.get(this) match {
+      case Some(t) => if (vo.isEmpty) t else t.transform(VarOwnerChangeTransformer,vo)
+      case None => vo.get(this.owner).map(this.changeOwner).getOrElse(this)
+    }
   }
 
+  override def changeOwner(newOwner: IEtaTerm): IVarTerm = {
+    if (newOwner eq owner) {
+      this
+    } else
+      new PlainVarTerm(newOwner, name)
+  }
 
 }
 
@@ -127,5 +148,6 @@ object TCPlainVarTerm extends TCVarTerm[PlainVarTerm] {
 
   override def name(t: PlainVarTerm): IName = t.name
 
+  override def changeOwner(t: PlainVarTerm, newOwner: IEtaTerm): IVarTerm = t.changeOwner(newOwner)
 
 }

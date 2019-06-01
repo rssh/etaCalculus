@@ -43,9 +43,9 @@ trait TCPrimitive[T] extends TCTerm[T]
      }
   }
 
-  override def substVars(t: T, s: Substitution[IVarTerm,ITerm]): ITerm = iprimitive(t)
+  override def substVars(t: T, s: Substitution[IVarTerm,ITerm], vo: Map[IEtaTerm,IEtaTerm]): ITerm = iprimitive(t)
 
-  override def mapVars(t: T, f: IVarTerm => ITerm): ITerm = iprimitive(t)
+  override def mapVars(t: T, f: IVarTerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = iprimitive(t)
 
 }
 
@@ -67,7 +67,8 @@ trait IPrimitive extends ITerm
 
   def  primitiveTypeIndex: Int = tcPrimitive.primitiveTypeIndex(carrier)
 
-  override def transform[B](matcher: TermKindMatcher[B]): B = matcher.onPrimitive(this)
+  override def transform[B](matcher: TermKindTransformer[B], vo:Map[IEtaTerm,IEtaTerm]): B =
+     matcher.onPrimitive(this,vo)
 
 }
 

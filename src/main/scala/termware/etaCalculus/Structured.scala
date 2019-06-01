@@ -30,7 +30,7 @@ trait TCStructured[T] extends TCTerm[T] {
 
   def foldSubtermsWhile[S](t:T,s0:S)(f: (S,ITerm) => S)(p: S => Boolean): S
 
-  def mapSubterms(t:T, f: ITerm => ITerm): ITerm
+  def mapSubterms(t:T, f: ITerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm
 
   override def tcVar(t: T): FastRefOption[TCVarTerm[T]] = FastRefOption.empty
   override def tcName(t: T): FastRefOption[TCName[T]] = FastRefOption.empty
@@ -65,16 +65,16 @@ trait IStructured extends ITerm
     tcStructured.subterm(carrier,n)
   }
 
-  def mapSubterms(f:ITerm => ITerm): ITerm = {
-    tcStructured.mapSubterms(carrier,f)
+  def mapSubterms(f:ITerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm = {
+    tcStructured.mapSubterms(carrier,f,vo)
   }
 
   def foldSubtermsWhile[S](s0:S)(f: (S,ITerm) => S)(p: S => Boolean): S = {
     tcStructured.foldSubtermsWhile(carrier,s0)(f)(p)
   }
 
-  override def transform[B](matcher: TermKindMatcher[B]): B = {
-    matcher.onStructured(this)
+  override def transform[B](matcher: TermKindTransformer[B], vo: Map[IEtaTerm,IEtaTerm]): B = {
+    matcher.onStructured(this,vo)
   }
 
 }
@@ -136,7 +136,7 @@ object TCPlainStructured extends TCStructured[PlainStructured]
   }
 
 
-  override def mapVars(t: Carrier, f: IVarTerm => ITerm): ITerm = {
+  override def mapVars(t: Carrier, f: IVarTerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
     var i=0
     var wasError = false
     var wasChanged = false
@@ -145,7 +145,7 @@ object TCPlainStructured extends TCStructured[PlainStructured]
     var cs: Substitution[IVarTerm,ITerm] = MapBasedVarSubstitution.empty
     while(i < arity(t) && !wasError) {
       val prev = t.subterms(i)
-      val nSubterm = prev.mapVars(f)
+      val nSubterm = prev.mapVars(f, vo)
       if (!(prev eq nSubterm)) {
         val meta = t.metainfo.components(i)
         val check = meta.constraint.leftUnifyInSubst(cs,nSubterm)
@@ -172,7 +172,7 @@ object TCPlainStructured extends TCStructured[PlainStructured]
     }
   }
 
-  override def substVars(t: Carrier, s: Substitution[IVarTerm,ITerm]): ITerm = {
+  override def substVars(t: Carrier, s: Substitution[IVarTerm,ITerm], vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
     var i=0
     var wasError = false
     var wasChanged = false
@@ -181,7 +181,7 @@ object TCPlainStructured extends TCStructured[PlainStructured]
     var cs = s
     while(i < arity(t) && !wasError) {
        val prev = t.subterms(i)
-       val nSubterm = prev.substVars(s)
+       val nSubterm = prev.substVars(s,vo)
        if (!(prev eq nSubterm)) {
          val meta = t.metainfo.components(i)
          val check = meta.constraint.leftUnifyInSubst(cs,nSubterm)
@@ -259,8 +259,8 @@ object TCPlainStructured extends TCStructured[PlainStructured]
     }
   }
 
-  override def mapSubterms(t: Carrier, f: ITerm => ITerm): ITerm = {
-    t.mapSubterms(f)
+  override def mapSubterms(t: Carrier, f: ITerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
+    t.mapSubterms(f,vo)
   }
 
 }
@@ -296,7 +296,15 @@ case class PlainStructured(val metainfo: StructuredMetainfo,
     }
   }
 
-  override def mapSubterms(f: ITerm => ITerm): ITerm = {
+  override def mapSubterms(f: ITerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm = {
+
+     def changeOwnerIfVar(t:ITerm):ITerm = {
+       t match {
+         case IVarTerm(v) => vo.get(v.owner).map(v.changeOwner(_)).getOrElse(v)
+         case _ => t
+       }
+     }
+
      var i=0
      var errorTerm: FastRefOption[IErrorTerm] = FastRefOption.empty
      var nSubterms = new Array[ITerm](subterms.size)
@@ -306,16 +314,17 @@ case class PlainStructured(val metainfo: StructuredMetainfo,
        val m = metainfo.components(i)
        if (!(ne eq e)) {
          m.constraint.leftUnifyInSubst(MapBasedVarSubstitution.empty, ne) match {
-           case UnificationSuccess(_) => nSubterms(i) = ne
+           case UnificationSuccess(_) => nSubterms(i) = changeOwnerIfVar(ne)
            case f: UnificationFailure => errorTerm = f.toIErrorTerm.asError()
          }
        } else {
-         nSubterms(i) = ne
+         nSubterms(i) = changeOwnerIfVar(ne)
        }
        i = i+1
      }
      errorTerm.getOrElse(new PlainStructured(metainfo,nSubterms.toIndexedSeq))
   }
+
 
 
 }
@@ -377,11 +386,11 @@ object TCStructuredEtaRepresentation extends TCStructured[StructuredEtaRepresent
 
   override def foldSubtermsWhile[S](t: StructuredEtaRepresentation, s0: S)(f: (S, ITerm) => S)(p: S => Boolean): S = ???
 
-  override def mapVars(t: StructuredEtaRepresentation, f: IVarTerm => ITerm): ITerm = ???
+  override def mapVars(t: StructuredEtaRepresentation, f: IVarTerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = ???
 
   override def leftUnifyInSubst(t: StructuredEtaRepresentation, s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = ???
 
-  override def mapSubterms(t: StructuredEtaRepresentation, f: ITerm => ITerm): ITerm = ???
+  override def mapSubterms(t: StructuredEtaRepresentation, f: ITerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = ???
 }
 
 class StructuredEtaRepresentation(iEtaTerm: IEtaTerm, structuredBase: IStructured) extends IStructured

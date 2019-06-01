@@ -58,8 +58,8 @@ trait TCName[T] extends TCTerm[T]
      }
   }
 
-  override def substVars(t:T, s: Substitution[IVarTerm,ITerm]): ITerm = iname(t)
-  override def mapVars(t: T, f: IVarTerm => ITerm): ITerm = iname(t)
+  override def substVars(t:T, s: Substitution[IVarTerm,ITerm], vo:Map[IEtaTerm,IEtaTerm]): ITerm = iname(t)
+  override def mapVars(t: T, f: IVarTerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = iname(t)
 
 
 }
@@ -107,7 +107,8 @@ trait IName extends ITerm
 
   def  value: Value = tcName.value(carrier).asInstanceOf[Value]
 
-  override def transform[B](matcher: TermKindMatcher[B]): B = matcher.onName(this)
+  override def transform[B](matcher: TermKindTransformer[B], vo: Map[IEtaTerm,IEtaTerm]): B =
+    matcher.onName(this,vo)
 
 }
 
