@@ -2,6 +2,8 @@ package termware.etaCalculus
 
 import termware.util.{FastRefOption, IdentityRef}
 
+import scala.reflect.ClassTag
+
 
 trait TCVarTerm[T] extends TCTerm[T]
 {
@@ -43,6 +45,21 @@ trait TCVarTerm[T] extends TCTerm[T]
   }
 
   override def mapVars(t: T, f: IVarTerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm = {
+    f(ivar(t)).transform(VarOwnerChangeTransformer,vo)
+  }
+
+  override def subst[N <: ITerm, V <: ITerm](t: T, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = {
+    val v = ivar(t)
+    v match {
+      case nTag(vn) => s.get(vn) match {
+          case Some(t) => t.transform(VarOwnerChangeTransformer, vo)
+          case None => fixOwner(v,vo)
+        }
+      case other => fixOwner(v,vo)
+    }
+  }
+
+  override def map(t: T, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
     f(ivar(t)).transform(VarOwnerChangeTransformer,vo)
   }
 

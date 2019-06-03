@@ -2,6 +2,8 @@ package termware.etaCalculus
 
 import termware.util.{FastRefOption, IdentityRef}
 
+import scala.reflect.ClassTag
+
 trait TCEtaTerm[T] extends TCTerm[T] {
 
   def ieta(t:T): IEtaTerm
@@ -71,7 +73,31 @@ object IEtaTerm {
     * @return
     */
   def create(context: Substitution[IName,ITerm], baseTerm: ITerm): IEtaTerm = {
-    ???
+     val names = context.keys()
+     new PlainEtaTerm(
+       new PlainEtaInitTransformers {
+
+         override def contextTransformation(self: PlainEtaTerm, oldContext: Substitution[IName, ITerm]): Substitution[IName, ITerm] = {
+            oldContext.mapValues(_.map(substName(_,self),Map.empty))
+         }
+
+         override def bodyTransformer(self: PlainEtaTerm, oldBody: ITerm): ITerm = {
+            oldBody.map(substName(_,self),Map.empty)
+         }
+
+         def substName(t:ITerm, self: PlainEtaTerm): ITerm = {
+           t match {
+             case IName(n) => if (context.containsKey(n)) {
+                  PlainVarTerm(self,n)
+                } else n
+             case other => other
+           }
+         }
+
+       },
+       context,
+       baseTerm
+     )
   }
 
 }
@@ -109,7 +135,7 @@ object VarOwnerChangeTransformer extends TermKindTransformer[ITerm] {
   override def onPrimitive(primitive: IPrimitive, vo:Map[IEtaTerm,IEtaTerm]): ITerm = primitive
 
   override def onStructured(structured: IStructured, vo: Map[IEtaTerm,IEtaTerm] ): ITerm = {
-    structured.mapSubterms(_.transform(this,vo),vo)
+    structured.mapSubterms(_.transform(this,vo),vo,true)
   }
 
   override def onEta(eta: IEtaTerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
@@ -143,6 +169,7 @@ trait PlainEtaInitTransformers {
 
 }
 
+
 object TCPlainEtaTerm extends TCEtaTerm[PlainEtaTerm] {
 
   override def ieta(t: PlainEtaTerm): IEtaTerm = t
@@ -164,7 +191,13 @@ object TCPlainEtaTerm extends TCEtaTerm[PlainEtaTerm] {
     t.mapVars(f,vo)
   }
 
-  //override def subst[N <: ITerm, V <: ITerm](t: PlainEtaTerm, s: ISubstitution[N, V]): ITerm = ???
+  override def subst[N <: ITerm, V <: ITerm](t: PlainEtaTerm, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag:ClassTag[N]): ITerm = {
+    t.subst(s,vo)
+  }
+
+  override def map(t: PlainEtaTerm, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
+    t.map(f,vo)
+  }
 
   override def tcName(t: PlainEtaTerm): FastRefOption[TCName[PlainEtaTerm]] = FastRefOption.empty
   override def tcVar(t: PlainEtaTerm): FastRefOption[TCVarTerm[PlainEtaTerm]] = FastRefOption.empty
@@ -195,6 +228,19 @@ class PlainEtaTerm(
 
   override def tcEtaTerm: TCEtaTerm[PlainEtaTerm] = TCPlainEtaTerm
 
+  case class TraveseTransformers(
+      f: (ITerm,Map[IEtaTerm,IEtaTerm]) => ITerm,
+      vo:Map[IEtaTerm,IEtaTerm]) extends PlainEtaInitTransformers {
+    override def contextTransformation(self: PlainEtaTerm, oldContext: Substitution[IName, ITerm]): Substitution[IName, ITerm] = {
+      oldContext.mapValues(f(_,vo.updated(thisEtaTerm,self)))
+    }
+
+    override def bodyTransformer(self: PlainEtaTerm, oldBody: ITerm): ITerm = {
+      f(oldBody,vo.updated(thisEtaTerm,self))
+    }
+  }
+
+
   override def etaModify(f: Substitution[IName, ITerm] => Substitution[IName, ITerm],
       vo: Map[IEtaTerm,IEtaTerm]): PlainEtaTerm =
     new PlainEtaTerm(
@@ -216,24 +262,27 @@ class PlainEtaTerm(
 
   override def mapVars(f: IVarTerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm = {
     new PlainEtaTerm(
-      new PlainEtaInitTransformers {
-
-        override def contextTransformation(self: PlainEtaTerm,
-                        oldContext: Substitution[IName, ITerm]): Substitution[IName, ITerm] = {
-          oldContext.mapValues(_.mapVars(f,vo.updated(thisEtaTerm,self)))
-        }
-
-        override def bodyTransformer(self: PlainEtaTerm, oldBody: ITerm): ITerm = {
-          oldBody.mapVars(f,vo.updated(thisEtaTerm,self))
-        }
-
-      },
+      TraveseTransformers((t,vo)=>t.mapVars(f,vo),vo),
       context,
       baseTerm
     )
   }
 
+  override def subst[N <: ITerm, V <: ITerm](s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = {
+    new PlainEtaTerm(
+      TraveseTransformers((t,vo)=>t.subst(s,vo),vo),
+      context,
+      baseTerm
+    )
+  }
 
+  override def map(f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
+    new PlainEtaTerm(
+      TraveseTransformers((t,vo)=>t.map(f,vo),vo),
+      context,
+      baseTerm
+    )
+  }
 
 
 }

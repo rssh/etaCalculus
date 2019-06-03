@@ -3,6 +3,7 @@ package termware.etaCalculus
 import termware.util.FastRefOption
 
 import scala.annotation.tailrec
+import scala.reflect.ClassTag
 
 case class StructuredComponent(
     name:IName,
@@ -30,7 +31,7 @@ trait TCStructured[T] extends TCTerm[T] {
 
   def foldSubtermsWhile[S](t:T,s0:S)(f: (S,ITerm) => S)(p: S => Boolean): S
 
-  def mapSubterms(t:T, f: ITerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm
+  def mapSubterms(t:T, f: ITerm => ITerm, vo:Map[IEtaTerm,IEtaTerm], fProcessVO: Boolean): ITerm
 
   override def tcVar(t: T): FastRefOption[TCVarTerm[T]] = FastRefOption.empty
   override def tcName(t: T): FastRefOption[TCName[T]] = FastRefOption.empty
@@ -65,8 +66,8 @@ trait IStructured extends ITerm
     tcStructured.subterm(carrier,n)
   }
 
-  def mapSubterms(f:ITerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm = {
-    tcStructured.mapSubterms(carrier,f,vo)
+  def mapSubterms(f:ITerm => ITerm, vo:Map[IEtaTerm,IEtaTerm], fProcessVO: Boolean): ITerm = {
+    tcStructured.mapSubterms(carrier,f,vo, fProcessVO)
   }
 
   def foldSubtermsWhile[S](s0:S)(f: (S,ITerm) => S)(p: S => Boolean): S = {
@@ -212,6 +213,13 @@ object TCPlainStructured extends TCStructured[PlainStructured]
     } else istructured(t)
   }
 
+  override def subst[N<: ITerm, V <: ITerm](t: Carrier, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag:ClassTag[N]): ITerm = {
+     t.subst(s,vo)
+  }
+
+  override def map(t: Carrier, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
+     t.map(f,vo)
+  }
 
   override def leftUnifyInSubst(t: Carrier, s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
     o match {
@@ -259,8 +267,8 @@ object TCPlainStructured extends TCStructured[PlainStructured]
     }
   }
 
-  override def mapSubterms(t: Carrier, f: ITerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
-    t.mapSubterms(f,vo)
+  override def mapSubterms(t: Carrier, f: ITerm => ITerm, vo: Map[IEtaTerm,IEtaTerm], fProcessVO: Boolean): ITerm = {
+    t.mapSubterms(f,vo, fProcessVO)
   }
 
 }
@@ -296,12 +304,16 @@ case class PlainStructured(val metainfo: StructuredMetainfo,
     }
   }
 
-  override def mapSubterms(f: ITerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm = {
+  override def mapSubterms(f: ITerm => ITerm, vo:Map[IEtaTerm,IEtaTerm], fProcessVo: Boolean): ITerm = {
 
      def changeOwnerIfVar(t:ITerm):ITerm = {
-       t match {
-         case IVarTerm(v) => vo.get(v.owner).map(v.changeOwner(_)).getOrElse(v)
-         case _ => t
+       if (fProcessVo) {
+         t
+       } else {
+         t match {
+           case IVarTerm(v) => vo.get(v.owner).map(v.changeOwner(_)).getOrElse(v)
+           case _ => t.transform(VarOwnerChangeTransformer, vo)
+         }
        }
      }
 
@@ -325,7 +337,34 @@ case class PlainStructured(val metainfo: StructuredMetainfo,
      errorTerm.getOrElse(new PlainStructured(metainfo,nSubterms.toIndexedSeq))
   }
 
+  def fixVars(t:ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm = {
+    if (vo.isEmpty) t
+    else t.transform(VarOwnerChangeTransformer,vo)
+  }
 
+  override def subst[N <: ITerm, V <: ITerm](s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = {
+    this match {
+      case nTag(thisN) => s.get(thisN).map(fixVars(_,vo)).getOrElse(substInternal(s,vo))
+      case _ => substInternal(s,vo)
+    }
+
+  }
+
+  def substInternal[N <: ITerm,V <:ITerm](s:Substitution[N,V], vo:Map[IEtaTerm,IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = {
+    mapSubterms({
+      case nTag(x) => val tc = s.get(x) match {
+          case Some(v) => v
+          case None => x
+        }
+        if (vo.isEmpty)
+          tc
+        else
+          tc.transform(VarOwnerChangeTransformer,vo)
+      case t => t.subst(s,vo)
+    }, vo, true)
+  }
+
+  override def map(f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = mapSubterms(f,vo, true)
 
 }
 
@@ -388,9 +427,13 @@ object TCStructuredEtaRepresentation extends TCStructured[StructuredEtaRepresent
 
   override def mapVars(t: StructuredEtaRepresentation, f: IVarTerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = ???
 
+  override def subst[N <: ITerm, V <: ITerm](t: StructuredEtaRepresentation, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = ???
+
+  override def map(t: StructuredEtaRepresentation, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = ???
+
   override def leftUnifyInSubst(t: StructuredEtaRepresentation, s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = ???
 
-  override def mapSubterms(t: StructuredEtaRepresentation, f: ITerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = ???
+  override def mapSubterms(t: StructuredEtaRepresentation, f: ITerm => ITerm, vo: Map[IEtaTerm,IEtaTerm], fProcessVo: Boolean): ITerm = ???
 }
 
 class StructuredEtaRepresentation(iEtaTerm: IEtaTerm, structuredBase: IStructured) extends IStructured

@@ -2,6 +2,8 @@ package termware.etaCalculus
 
 import termware.util.FastRefOption
 
+import scala.reflect.ClassTag
+
 
 trait TCTerm[T] extends TCLeftUnificable[T] {
 
@@ -13,9 +15,9 @@ trait TCTerm[T] extends TCLeftUnificable[T] {
 
    def mapVars(t:T, f: IVarTerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm
 
-   //def subst[N<:ITerm, V<:ITerm](t:T, s: ISubstitution[N,V]): ITerm
+   def subst[N<:ITerm, V<:ITerm](t:T, s: Substitution[N,V], vo:Map[IEtaTerm,IEtaTerm])(implicit nTag: ClassTag[N]): ITerm
 
-   //def mapTerms(t:T, f: ITerm => ITerm): ITerm
+   def map(t:T, f: ITerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm
 
    def tcName(t: T): FastRefOption[TCName[T]]
    def isName(t: T): Boolean = tcName(t).isDefined
@@ -79,9 +81,13 @@ trait ITerm extends ILeftUnificable
     tcTerm.mapVars(carrier,f, vo)
   }
 
-  //def subst[N<:ITerm,V<:ITerm](s:ISubstitution[N,V]): ITerm = {
-  //  tcTerm.subst(carrier,s)
-  //}
+  def subst[N<:ITerm,V<:ITerm](s: Substitution[N,V], vo: Map[IEtaTerm,IEtaTerm])(implicit nTag:ClassTag[N]): ITerm = {
+    tcTerm.subst(carrier,s,vo)
+  }
+
+  def map(f: ITerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
+    tcTerm.map(carrier,f,vo)
+  }
 
 }
 

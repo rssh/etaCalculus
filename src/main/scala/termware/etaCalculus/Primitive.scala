@@ -2,6 +2,8 @@ package termware.etaCalculus
 
 import termware.util.FastRefOption
 
+import scala.reflect.ClassTag
+
 
 trait TCPrimitive[T] extends TCTerm[T]
 {
@@ -46,6 +48,18 @@ trait TCPrimitive[T] extends TCTerm[T]
   override def substVars(t: T, s: Substitution[IVarTerm,ITerm], vo: Map[IEtaTerm,IEtaTerm]): ITerm = iprimitive(t)
 
   override def mapVars(t: T, f: IVarTerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = iprimitive(t)
+
+  override def subst[N <: ITerm, V <: ITerm](t: T, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag:ClassTag[N]): ITerm = {
+    val pt = iprimitive(t)
+    pt match {
+      case nTag(npt) => s.get(npt).getOrElse(pt)
+      case _ => pt
+    }
+  }
+
+  override def map(t: T, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
+    iprimitive(t)
+  }
 
 }
 

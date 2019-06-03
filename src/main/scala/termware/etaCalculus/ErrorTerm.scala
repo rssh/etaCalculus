@@ -1,6 +1,8 @@
 package termware.etaCalculus
 import termware.util.FastRefOption
 
+import scala.reflect.ClassTag
+
 trait TCErrorTerm[T] extends TCTerm[T] {
 
   def ierror(t:T): IErrorTerm = CErrorTerm(t,this)
@@ -17,6 +19,10 @@ trait TCErrorTerm[T] extends TCTerm[T] {
 
   override def substVars(t: T, s: Substitution[IVarTerm,ITerm], vo:Map[IEtaTerm,IEtaTerm]): ITerm = ierror(t)
   override def mapVars(t:T, f: IVarTerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm = ierror(t)
+
+  override def subst[N <: ITerm, V <: ITerm](t: T, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = ierror(t)
+
+  override def map(t: T, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = ierror(t)
 
   override def tcError(t: T): FastRefOption[TCErrorTerm[T]] = FastRefOption(this)
   override def tcName(t: T): FastRefOption[TCName[T]] = FastRefOption.empty

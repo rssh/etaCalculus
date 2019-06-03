@@ -2,6 +2,8 @@ package termware.etaCalculus
 
 import termware.util.FastRefOption
 
+import scala.reflect.ClassTag
+
 
 trait TCName[T] extends TCTerm[T]
 {
@@ -60,6 +62,20 @@ trait TCName[T] extends TCTerm[T]
 
   override def substVars(t:T, s: Substitution[IVarTerm,ITerm], vo:Map[IEtaTerm,IEtaTerm]): ITerm = iname(t)
   override def mapVars(t: T, f: IVarTerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = iname(t)
+
+  override def subst[N <: ITerm, V <: ITerm](t: T, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = {
+    val name = iname(t)
+    name match {
+      case nTag(x) => s.get(x).map(_.transform(VarOwnerChangeTransformer,vo)).getOrElse(name)
+      case other => name
+    }
+
+  }
+
+  override def map(t: T, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
+    iname(t)
+  }
+
 
 
 }
@@ -165,6 +181,8 @@ case class IntName(override val value: Int) extends IName {
   override def carrier: IntName = this
   override def tcName: TCName[IntName] = IntName.TC
 
+  override def map(f: ITerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]) = this
+
 }
 
 object IntName {
@@ -185,6 +203,8 @@ object IntName {
     override def value(t: IntName): Int = t.value
     override def iname(t: IntName): IName = t
     override def compareSame(t: IntName, other: Int): Int = t.value - other
+
+
 
 
   }

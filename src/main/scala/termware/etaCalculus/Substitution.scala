@@ -22,6 +22,8 @@ trait Substitution[L <: ITerm, R <: ITerm]
       case None => ifNot
     }
 
+  def containsKey(x:Name): Boolean = get(x).isDefined
+
   def update(x:Name,y:Value): Substitution[Name,Value]
 
   def remove(x:Name): Substitution[Name,Value]
@@ -36,15 +38,29 @@ trait Substitution[L <: ITerm, R <: ITerm]
     }(_ => true)
   }
 
-
   def empty(): Substitution[Name,Value]
 
   def foldWhile[S](s0:S)(f:(S,(Name,Value)) => S)(p:S => Boolean):S
+
+  def keys(): Set[L]
 
   def mapValues(f:R=>ITerm): Substitution[L,ITerm]
 
 }
 
+object Substitution {
+
+  def fromMap[L<:ITerm,R <: ITerm](m:Map[L,R]):Substitution[L,R] = {
+    new MapBasedTermSubstitution(m)
+  }
+
+  def namedTerms( pairs: (String,ITerm)* ):Substitution[IName,ITerm] = {
+    fromMap(pairs.map{
+      case (n,v) => (StringName(n), v)
+    }.toMap)
+  }
+
+}
 
 case class MapBasedVarSubstitution(values: Map[IdentityRef[IEtaTerm],Map[IName,ITerm]]) extends Substitution[IVarTerm,ITerm]
 {
@@ -102,6 +118,10 @@ case class MapBasedVarSubstitution(values: Map[IdentityRef[IEtaTerm],Map[IName,I
 
   override def isEmpty(): Boolean = values.isEmpty
 
+  override def keys(): Set[IVarTerm] = values.flatMap{ case (ref,names) =>
+    names.keySet.map(new PlainVarTerm(ref.ref,_))
+  }.toSet
+
   override def mapValues(f: ITerm => ITerm): Substitution[IVarTerm, ITerm] = {
     new MapBasedVarSubstitution(values.mapValues(_.mapValues(f)))
   }
@@ -145,6 +165,8 @@ class MapBasedTermSubstitution[L <: ITerm, R <: ITerm](val value:Map[L,R]) exten
   }
 
   override def empty(): Substitution[L, R] = MapBasedTermSubstitution.empty
+
+  override def keys(): Set[L] = value.keySet
 
   override def mapValues(f: R => ITerm): Substitution[L, ITerm] = {
     new MapBasedTermSubstitution(value.mapValues(f))
