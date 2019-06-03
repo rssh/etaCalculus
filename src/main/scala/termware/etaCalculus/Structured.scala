@@ -138,79 +138,13 @@ object TCPlainStructured extends TCStructured[PlainStructured]
 
 
   override def mapVars(t: Carrier, f: IVarTerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
-    var i=0
-    var wasError = false
-    var wasChanged = false
-    var r: ITerm = t
-    var newSubterms: Array[ITerm] = null
-    var cs: Substitution[IVarTerm,ITerm] = MapBasedVarSubstitution.empty
-    while(i < arity(t) && !wasError) {
-      val prev = t.subterms(i)
-      val nSubterm = prev.mapVars(f, vo)
-      if (!(prev eq nSubterm)) {
-        val meta = t.metainfo.components(i)
-        val check = meta.constraint.leftUnifyInSubst(cs,nSubterm)
-        check match {
-          case UnificationSuccess(s1) => cs = s1
-            if (!wasChanged) {
-              newSubterms = new Array[ITerm](t.arity())
-              t.subterms.copyToArray(newSubterms,0,i)
-              wasChanged = true
-            }
-            newSubterms(i) = nSubterm
-          case failure:UnificationFailure =>
-            wasError = true
-            r = failure.toIErrorTerm
-        }
-      }
-    }
-    if (wasError) {
-      r
-    } else if (wasChanged) {
-      new PlainStructured(t.metainfo,newSubterms.toIndexedSeq)
-    } else {
-      istructured(t)
-    }
+    mapSubterms(t,{ prev =>
+      prev.mapVars(f,vo)
+    },vo,true)
   }
 
   override def substVars(t: Carrier, s: Substitution[IVarTerm,ITerm], vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
-    var i=0
-    var wasError = false
-    var wasChanged = false
-    var r: ITerm = t
-    var newSubterms: Array[ITerm] = null
-    var cs = s
-    while(i < arity(t) && !wasError) {
-       val prev = t.subterms(i)
-       val nSubterm = prev.substVars(s,vo)
-       if (!(prev eq nSubterm)) {
-         val meta = t.metainfo.components(i)
-         val check = meta.constraint.leftUnifyInSubst(cs,nSubterm)
-         check match {
-           case UnificationSuccess(s1) => cs = s1
-             if (!wasChanged) {
-               newSubterms = new Array[ITerm](t.arity())
-               t.subterms.copyToArray(newSubterms,0,i)
-               wasChanged = true
-             }
-             newSubterms(i) = nSubterm
-           case failure:UnificationFailure =>
-             wasError = true
-             r = failure.toIErrorTerm
-         }
-       } else {
-         //
-         if (wasChanged) {
-           newSubterms(i) = nSubterm
-         }
-       }
-       i = i+1
-     }
-    if (wasError) {
-      r
-    } else if (wasChanged) {
-      new PlainStructured(t.metainfo,newSubterms.toIndexedSeq)
-    } else istructured(t)
+    mapSubterms(t,{ _.substVars(s,vo) },vo,true)
   }
 
   override def subst[N<: ITerm, V <: ITerm](t: Carrier, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag:ClassTag[N]): ITerm = {
