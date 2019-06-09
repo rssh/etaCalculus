@@ -19,6 +19,24 @@ trait TCTerm[T] extends TCLeftUnificable[T] {
 
    def map(t:T, f: ITerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm
 
+   def hasPatterns(t:T): Boolean = hasPatternsRec(t,Map.empty)
+
+   def hasPatternsRec(t:T, trace:Map[IVarTerm,Boolean]): Boolean
+
+  /**
+    * Check for term equality without referential transparency  (but ignoring extra context layers)
+    * i.e.  termEqNoRef(eta x -> 1 : 1, 1 ) == true
+    *  but
+    *       termEqNoRef(eta x -> 1 : x, 1) == false
+    * @param t
+    * @param otherTerm
+    * @return
+    */
+   def termEqNoRef(t:T, otherTerm:ITerm): Boolean
+
+   // TODO: define with trace and equential transparency.
+   //def termEq(t:T, otherTerm: ITerm, trace: Map[IVarTerm,ITerm]): Boolean
+
    def tcName(t: T): FastRefOption[TCName[T]]
    def isName(t: T): Boolean = tcName(t).isDefined
    def tcVar(t:T): FastRefOption[TCVarTerm[T]]
@@ -27,10 +45,13 @@ trait TCTerm[T] extends TCLeftUnificable[T] {
    def isPrimitive(t:T): Boolean = tcPrimitive(t).isDefined
    def tcStructured(t:T): FastRefOption[TCStructured[T]]
    def isStructured(t:T): Boolean = tcStructured(t).isDefined
+   def tcPatternCondition(t:T): FastRefOption[TCPatternCondition[T]]
+   def isPatternCondition(t:T): Boolean = tcPatternCondition(t).isDefined
    def tcEta(t:T): FastRefOption[TCEtaTerm[T]]
    def isEta(t:T): Boolean = tcEta(t).isDefined
    def tcError(t:T): FastRefOption[TCErrorTerm[T]]
    def isError(t:T): Boolean = tcError(t).isDefined
+
 
 }
 
@@ -42,6 +63,12 @@ trait ITerm extends ILeftUnificable
   def tcTerm: TCTerm[Carrier]
 
   def carrier: Carrier
+
+  def hasPatterns(): Boolean = hasPatternsRec(Map.empty)
+
+  def hasPatternsRec(trace:Map[IVarTerm,Boolean]): Boolean = {
+    tcTerm.hasPatternsRec(carrier, trace)
+  }
 
   def isName(): Boolean = tcTerm.isName(carrier)
 
@@ -62,6 +89,11 @@ trait ITerm extends ILeftUnificable
   def isEta(): Boolean = tcTerm.isEta(carrier)
 
   def asEta(): FastRefOption[IEtaTerm] = tcTerm.tcEta(carrier).map(_.ieta(carrier))
+
+  def isPatternCondition(): Boolean = tcTerm.isPatternCondition(carrier)
+
+  def asPatternCondition(): FastRefOption[IPatternCondition] =
+      tcTerm.tcPatternCondition(carrier).map(_.iPatternCondition(carrier))
 
   def isError(): Boolean = tcTerm.isError(carrier)
 
@@ -89,6 +121,10 @@ trait ITerm extends ILeftUnificable
     tcTerm.map(carrier,f,vo)
   }
 
+  def termEqNoRef(o: ITerm): Boolean = {
+    tcTerm.termEqNoRef(carrier,o)
+  }
+
 }
 
 object ITerm extends ITermConversions {
@@ -114,6 +150,7 @@ case class CTerm[T](t:T,tc:TCTerm[T]) extends ITerm
       case IEtaTerm(x) => matcher.onEta(x,vo)
       case IStructured(x) => matcher.onStructured(x,vo)
       case IErrorTerm(x) => matcher.onError(x,vo)
+      case IPatternCondition(x) => matcher.onPatternCondition(x,vo)
     }
 
   }

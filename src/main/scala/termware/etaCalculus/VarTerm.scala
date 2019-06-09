@@ -63,6 +63,14 @@ trait TCVarTerm[T] extends TCTerm[T]
     f(ivar(t)).transform(VarOwnerChangeTransformer,vo)
   }
 
+  override def termEqNoRef(t: T, otherTerm: ITerm): Boolean = {
+    otherTerm match {
+      case IVarTerm(otherVar) =>
+        (owner(t) eq otherVar.owner) && name(t).termEqNoRef(otherVar.name)
+      case _ => false
+    }
+  }
+
   def ownerRef(t:T): IdentityRef[IEtaTerm] =
     new IdentityRef[IEtaTerm](owner(t))
 
@@ -74,6 +82,7 @@ trait TCVarTerm[T] extends TCTerm[T]
   override def tcStructured(t: T): FastRefOption[TCStructured[T]] = FastRefOption.empty
   override def tcEta(t: T): FastRefOption[TCEtaTerm[T]] = FastRefOption.empty
   override def tcError(t: T): FastRefOption[TCErrorTerm[T]] = FastRefOption.empty
+  override def tcPatternCondition(t: T): FastRefOption[TCPatternCondition[T]] = FastRefOption.empty
 
 }
 
@@ -97,6 +106,16 @@ trait IVarTerm extends ITerm {
 
   def changeOwner(newOwner: IEtaTerm): IVarTerm = tcVarTerm.changeOwner(carrier,newOwner)
 
+  override def hasPatternsRec(trace: Map[IVarTerm, Boolean]): Boolean = {
+    trace.get(this) match {
+      case Some(v) => v
+      case None => value() match {
+        case FastRefOption.Some(v) => v.hasPatternsRec(trace.updated(this,false))
+        case _ => false
+      }
+    }
+  }
+
   override def transform[B](matcher: TermKindTransformer[B], vo:Map[IEtaTerm,IEtaTerm]): B = matcher.onVar(this,vo)
 
   override def equals(obj: scala.Any): Boolean = {
@@ -112,10 +131,25 @@ trait IVarTerm extends ITerm {
     name.hashCode() ^ System.identityHashCode(owner)
   }
 
+  def hasValue(): Boolean = value().isDefined
+
+  def value(): FastRefOption[ITerm] =
+    owner.context().get(name) match {
+      case Some(v) => FastRefOption(v)
+      case None => FastRefOption.empty
+    }
+
+  def value_(): ITerm =
+    owner.context().get(name).get
+
+
 }
 
 object IVarTerm
 {
+
+  def apply(owner: IEtaTerm, name: IName): IVarTerm =
+    PlainVarTerm(owner,name)
 
   def unapply(arg: ITerm): FastRefOption[IVarTerm] = arg.asVar()
 
@@ -166,5 +200,10 @@ object TCPlainVarTerm extends TCVarTerm[PlainVarTerm] {
   override def name(t: PlainVarTerm): IName = t.name
 
   override def changeOwner(t: PlainVarTerm, newOwner: IEtaTerm): IVarTerm = t.changeOwner(newOwner)
+
+  override def hasPatternsRec(t: PlainVarTerm, trace: Map[IVarTerm, Boolean]): Boolean = {
+    t.hasPatternsRec(trace)
+  }
+
 
 }

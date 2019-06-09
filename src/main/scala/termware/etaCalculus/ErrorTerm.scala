@@ -13,9 +13,12 @@ trait TCErrorTerm[T] extends TCTerm[T] {
 
   def traceData(t:T): Any
 
+  override def hasPatternsRec(t: T, trace: Map[IVarTerm,Boolean]): Boolean = false
+
   override def leftUnifyInSubst(t: T, s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
     UnificationFailure("attempt to unify error",iterm(t),o,None,s)
   }
+
 
   override def substVars(t: T, s: Substitution[IVarTerm,ITerm], vo:Map[IEtaTerm,IEtaTerm]): ITerm = ierror(t)
   override def mapVars(t:T, f: IVarTerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm = ierror(t)
@@ -30,6 +33,9 @@ trait TCErrorTerm[T] extends TCTerm[T] {
   override def tcVar(t: T): FastRefOption[TCVarTerm[T]] = FastRefOption.empty
   override def tcStructured(t: T): FastRefOption[TCStructured[T]] = FastRefOption.empty
   override def tcEta(t: T): FastRefOption[TCEtaTerm[T]] = FastRefOption.empty
+  override def tcPatternCondition(t: T): FastRefOption[TCPatternCondition[T]] = FastRefOption.empty
+
+  override def termEqNoRef(t: T, otherTerm: ITerm): Boolean = t.equals(otherTerm.carrier)
 
 }
 
@@ -50,9 +56,18 @@ object IErrorTerm {
 
   def unapply(arg: ITerm): FastRefOption[IErrorTerm] = arg.asError()
 
+  def apply(msg: String): IErrorTerm = new CErrorTerm[String](msg, TCStringErrorTerm)
 }
 
 case class CErrorTerm[T](carrier:T, tcError: TCErrorTerm[T]) extends IErrorTerm {
   type Carrier = T
 }
 
+
+object TCStringErrorTerm extends TCErrorTerm[String] {
+  override def shortMessage(t: String): String = t
+
+  override def detailedMessage(t: String): String = t
+
+  override def traceData(t: String): Any = t
+}

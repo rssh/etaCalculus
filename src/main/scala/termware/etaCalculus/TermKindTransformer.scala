@@ -14,4 +14,6 @@ trait TermKindTransformer[B] {
 
   def onError(error: IErrorTerm, vo: Map[IEtaTerm,IEtaTerm]): B
 
+  def onPatternCondition(patternCondition: IPatternCondition, vo: Map[IEtaTerm,IEtaTerm]): B
+
 }

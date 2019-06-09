@@ -1,5 +1,6 @@
 package termware.etaCalculus
 
+import termware.etaCalculus.PlainEtaTerm.TraveseTransformers
 import termware.util.{FastRefOption, IdentityRef}
 
 import scala.reflect.ClassTag
@@ -159,6 +160,16 @@ object VarOwnerChangeTransformer extends TermKindTransformer[ITerm] {
 
   override def onError(error: IErrorTerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm = error
 
+  override def onPatternCondition(patternCondition: IPatternCondition, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
+     val expr = patternCondition.expression
+     val nExpr = expr.transform(this,vo)
+     if (nExpr eq expr) {
+       patternCondition
+     } else {
+       patternCondition.substExpression(nExpr)
+     }
+  }
+
 }
 
 trait PlainEtaInitTransformers {
@@ -199,13 +210,21 @@ object TCPlainEtaTerm extends TCEtaTerm[PlainEtaTerm] {
     t.map(f,vo)
   }
 
+  override def hasPatternsRec(t: PlainEtaTerm, trace: Map[IVarTerm,Boolean]): Boolean = t.hasPatternsRec(trace)
+
   override def tcName(t: PlainEtaTerm): FastRefOption[TCName[PlainEtaTerm]] = FastRefOption.empty
   override def tcVar(t: PlainEtaTerm): FastRefOption[TCVarTerm[PlainEtaTerm]] = FastRefOption.empty
   override def tcPrimitive(t: PlainEtaTerm): FastRefOption[TCPrimitive[PlainEtaTerm]] = FastRefOption.empty
   override def tcStructured(t: PlainEtaTerm): FastRefOption[TCStructured[PlainEtaTerm]] = FastRefOption.empty
   override def tcEta(t: PlainEtaTerm): FastRefOption[TCEtaTerm[PlainEtaTerm]] = FastRefOption(this)
   override def tcError(t: PlainEtaTerm): FastRefOption[TCErrorTerm[PlainEtaTerm]] = FastRefOption.empty
+  override def tcPatternCondition(t: PlainEtaTerm): FastRefOption[TCPatternCondition[PlainEtaTerm]] = FastRefOption.empty
+
+  override def termEqNoRef(t: PlainEtaTerm, otherTerm: ITerm): Boolean = t.termEqNoRef(otherTerm)
+
   override def leftUnifyInSubst(t: PlainEtaTerm, s: Substitution[IVarTerm, ITerm], o: ITerm): UnificationResult = ???
+
+
 }
 
 
@@ -228,19 +247,6 @@ class PlainEtaTerm(
 
   override def tcEtaTerm: TCEtaTerm[PlainEtaTerm] = TCPlainEtaTerm
 
-  case class TraveseTransformers(
-      f: (ITerm,Map[IEtaTerm,IEtaTerm]) => ITerm,
-      vo:Map[IEtaTerm,IEtaTerm]) extends PlainEtaInitTransformers {
-    override def contextTransformation(self: PlainEtaTerm, oldContext: Substitution[IName, ITerm]): Substitution[IName, ITerm] = {
-      oldContext.mapValues(f(_,vo.updated(thisEtaTerm,self)))
-    }
-
-    override def bodyTransformer(self: PlainEtaTerm, oldBody: ITerm): ITerm = {
-      f(oldBody,vo.updated(thisEtaTerm,self))
-    }
-  }
-
-
   override def etaModify(f: Substitution[IName, ITerm] => Substitution[IName, ITerm],
       vo: Map[IEtaTerm,IEtaTerm]): PlainEtaTerm =
     new PlainEtaTerm(
@@ -262,7 +268,7 @@ class PlainEtaTerm(
 
   override def mapVars(f: IVarTerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm = {
     new PlainEtaTerm(
-      TraveseTransformers((t,vo)=>t.mapVars(f,vo),vo),
+      TraveseTransformers(thisEtaTerm,(t,vo)=>t.mapVars(f,vo),vo),
       context,
       baseTerm
     )
@@ -270,7 +276,7 @@ class PlainEtaTerm(
 
   override def subst[N <: ITerm, V <: ITerm](s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = {
     new PlainEtaTerm(
-      TraveseTransformers((t,vo)=>t.subst(s,vo),vo),
+      TraveseTransformers(thisEtaTerm,(t,vo)=>t.subst(s,vo),vo),
       context,
       baseTerm
     )
@@ -278,11 +284,32 @@ class PlainEtaTerm(
 
   override def map(f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
     new PlainEtaTerm(
-      TraveseTransformers((t,vo)=>t.map(f,vo),vo),
+      TraveseTransformers(thisEtaTerm,(t,vo)=>t.map(f,vo),vo),
       context,
       baseTerm
     )
   }
 
+  override def hasPatternsRec(trace: Map[IVarTerm,Boolean]): Boolean = baseTerm.hasPatternsRec(trace)
+
+  override def termEqNoRef(other: ITerm): Boolean = baseTerm.termEqNoRef(other)
+
+
+}
+
+object PlainEtaTerm {
+
+  case class TraveseTransformers(
+      thisEtaTerm: IEtaTerm,
+      f: (ITerm,Map[IEtaTerm,IEtaTerm]) => ITerm,
+      vo:Map[IEtaTerm,IEtaTerm]) extends PlainEtaInitTransformers {
+    override def contextTransformation(self: PlainEtaTerm, oldContext: Substitution[IName, ITerm]): Substitution[IName, ITerm] = {
+      oldContext.mapValues(f(_,vo.updated(thisEtaTerm,self)))
+    }
+
+    override def bodyTransformer(self: PlainEtaTerm, oldBody: ITerm): ITerm = {
+      f(oldBody,vo.updated(thisEtaTerm,self))
+    }
+  }
 
 }

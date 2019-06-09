@@ -35,17 +35,15 @@ trait TCName[T] extends TCTerm[T]
 
   def  compareSame(t:T, other:V): Int
 
+  override def hasPatternsRec(t: T, trace: Map[IVarTerm,Boolean]): Boolean = false
+
   override def tcName(t: T): FastRefOption[TCName[T]] = FastRefOption(this)
-
   override def tcVar(t: T): FastRefOption[TCVarTerm[T]] = FastRefOption.empty
-
   override def tcPrimitive(t: T): FastRefOption[TCPrimitive[T]] = FastRefOption.empty
-
   override def tcError(t: T): FastRefOption[TCErrorTerm[T]] = FastRefOption.empty
-
   override def tcEta(t: T): FastRefOption[TCEtaTerm[T]] = FastRefOption.empty
-
   override def tcStructured(t: T): FastRefOption[TCStructured[T]] = FastRefOption.empty
+  override def tcPatternCondition(t: T): FastRefOption[TCPatternCondition[T]] = FastRefOption.empty
 
   override def leftUnifyInSubst(t: T, s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
      o.asName match {
@@ -58,6 +56,17 @@ trait TCName[T] extends TCTerm[T]
        case FastRefOption.Empty() =>
                 UnificationFailure("not name in right part",iname(t),o,None,s)
      }
+  }
+
+  override def termEqNoRef(t: T, otherTerm: ITerm): Boolean = {
+    otherTerm.asName() match {
+      case FastRefOption.Some(otherName) => (compare(t,otherName)==0)
+      case FastRefOption.Empty() =>
+        otherTerm.asEta() match {
+          case FastRefOption.Some(otherEta) => termEqNoRef(t,otherEta.baseTerm())
+          case FastRefOption.Empty() => false
+        }
+    }
   }
 
   override def substVars(t:T, s: Substitution[IVarTerm,ITerm], vo:Map[IEtaTerm,IEtaTerm]): ITerm = iname(t)

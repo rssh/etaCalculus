@@ -1,5 +1,6 @@
 package termware.etaCalculus
 
+import termware.etaCalculus.PlainStructured.{createMetainfo, freeMetainfo}
 import termware.util.FastRefOption
 
 import scala.annotation.tailrec
@@ -39,6 +40,7 @@ trait TCStructured[T] extends TCTerm[T] {
   override def tcStructured(t: T): FastRefOption[TCStructured[T]] = FastRefOption(this)
   override def tcEta(t: T): FastRefOption[TCEtaTerm[T]] = FastRefOption.empty
   override def tcError(t: T): FastRefOption[TCErrorTerm[T]] = FastRefOption.empty
+  override def tcPatternCondition(t: T): FastRefOption[TCPatternCondition[T]] = FastRefOption.empty
 
 }
 
@@ -84,6 +86,15 @@ object IStructured {
 
   def unapply(arg: ITerm): FastRefOption[IStructured] = arg.asStructured()
 
+  @inline
+  def freeNamed(name:String,byName:(String,ITerm)*): ITerm = {
+    PlainStructured.freeNamed(name,byName: _*)
+  }
+
+  @inline
+  def freeIndexed(name:String, byIndex: ITerm*): ITerm = {
+    PlainStructured.freeIndexed(name,byIndex: _*)
+  }
 
 
 }
@@ -124,6 +135,7 @@ object TCPlainStructured extends TCStructured[PlainStructured]
       case None => FastRefOption.empty
     }
   }
+
 
   override def foldSubtermsWhile[S](t: Carrier, s0: S)(f: (S, ITerm) => S)(p: S => Boolean): S = {
     var s = s0
@@ -203,6 +215,14 @@ object TCPlainStructured extends TCStructured[PlainStructured]
 
   override def mapSubterms(t: Carrier, f: ITerm => ITerm, vo: Map[IEtaTerm,IEtaTerm], fProcessVO: Boolean): ITerm = {
     t.mapSubterms(f,vo, fProcessVO)
+  }
+
+  override def hasPatternsRec(t: Carrier, trace:Map[IVarTerm,Boolean]): Boolean = {
+    t.hasPatternsRec(trace)
+  }
+
+  override def termEqNoRef(t: Carrier, otherTerm: ITerm): Boolean = {
+    t.termEqNoRef(otherTerm)
   }
 
 }
@@ -300,7 +320,43 @@ case class PlainStructured(val metainfo: StructuredMetainfo,
 
   override def map(f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = mapSubterms(f,vo, true)
 
+  override def termEqNoRef(o: ITerm): Boolean = {
+    o match {
+      case IStructured(otherStructured) =>
+        if (arity() != otherStructured.arity() || name() != otherStructured.name()) {
+          false
+        } else {
+          var i=0
+          var mismatchDetected = false
+          while(i < subterms.size && !mismatchDetected) {
+            val l = subterms(i)
+            val r = otherStructured.subterm(i).get()
+            if (!l.termEqNoRef(r)) {
+              mismatchDetected = true
+            }
+            i = i+1
+          }
+          !mismatchDetected
+        }
+      case IEtaTerm(eta) => termEqNoRef(eta.baseTerm())
+      case IVarTerm(v) => false //  value substitution is nto stored, to prevent endless loops
+      case _ => false
+    }
+  }
+
+
+  override def hasPatterns(): Boolean = {
+    _hasPatterns
+  }
+
+  override def hasPatternsRec(trace: Map[IVarTerm, Boolean]): Boolean = {
+    subterms.exists(_.hasPatternsRec(trace))
+  }
+
+  private[this] lazy val _hasPatterns = hasPatternsRec(Map.empty)
+
 }
+
 
 object PlainStructured {
 
@@ -368,6 +424,11 @@ object TCStructuredEtaRepresentation extends TCStructured[StructuredEtaRepresent
   override def leftUnifyInSubst(t: StructuredEtaRepresentation, s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = ???
 
   override def mapSubterms(t: StructuredEtaRepresentation, f: ITerm => ITerm, vo: Map[IEtaTerm,IEtaTerm], fProcessVo: Boolean): ITerm = ???
+
+  override def hasPatternsRec(t: StructuredEtaRepresentation, trace:Map[IVarTerm,Boolean]): Boolean = ???
+
+  override def termEqNoRef(t: StructuredEtaRepresentation, otherTerm: ITerm): Boolean = ???
+
 }
 
 class StructuredEtaRepresentation(iEtaTerm: IEtaTerm, structuredBase: IStructured) extends IStructured
