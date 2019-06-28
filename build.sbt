@@ -3,8 +3,8 @@ organization := "com.github.rssh"
 name := "etaCalculus"
 version := "0.1-SNAPSHOT"
 
-scalaVersion := "2.12.8"
+scalaVersion := "2.13.0"
 
 libraryDependencies ++= Seq(
-  "org.scalatest" %% "scalatest" % "3.0.5" % "test"
+  "org.scalatest" %% "scalatest" % "3.0.8" % "test"
 )

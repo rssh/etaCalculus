@@ -118,12 +118,19 @@ case class MapBasedVarSubstitution(values: Map[IdentityRef[IEtaTerm],Map[IName,I
 
   override def isEmpty(): Boolean = values.isEmpty
 
-  override def keys(): Set[IVarTerm] = values.flatMap{ case (ref,names) =>
-    names.keySet.map(new PlainVarTerm(ref.ref,_))
-  }.toSet
+  override def keys(): Set[IVarTerm] = {
+    { def retrieveVar(ref: IdentityRef[IEtaTerm], names: Map[IName,ITerm]): IterableOnce[IVarTerm] = {
+         names.keySet.map(x => new PlainVarTerm(ref.ref,x))
+      }
+      values.flatMap{case (ref,names) => retrieveVar(ref,names)}.toSet
+    }
+  }
 
+  // TODO: implement lazy substitution
   override def mapValues(f: ITerm => ITerm): Substitution[IVarTerm, ITerm] = {
-    new MapBasedVarSubstitution(values.mapValues(_.mapValues(f)))
+    new MapBasedVarSubstitution(
+      values.view.mapValues(_.view.mapValues(f).toMap).toMap
+    )
   }
 
 
@@ -169,7 +176,8 @@ class MapBasedTermSubstitution[L <: ITerm, R <: ITerm](val value:Map[L,R]) exten
   override def keys(): Set[L] = value.keySet
 
   override def mapValues(f: R => ITerm): Substitution[L, ITerm] = {
-    new MapBasedTermSubstitution(value.mapValues(f))
+    // TODO:  lazy 
+    new MapBasedTermSubstitution(value.view.mapValues(f).toMap)
   }
 
 
