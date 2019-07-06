@@ -222,7 +222,10 @@ object TCPlainEtaTerm extends TCEtaTerm[PlainEtaTerm] {
 
   override def termEqNoRef(t: PlainEtaTerm, otherTerm: ITerm): Boolean = t.termEqNoRef(otherTerm)
 
-  override def leftUnifyInSubst(t: PlainEtaTerm, s: Substitution[IVarTerm, ITerm], o: ITerm): UnificationResult = ???
+  override def leftUnifyInSubst(t: PlainEtaTerm, s: Substitution[IVarTerm, ITerm], o: ITerm): UnificationResult = {
+    // TODO:  recheck and add tests
+    t.baseTerm.leftUnifyInSubst(s,o)
+  }
 
 
 }

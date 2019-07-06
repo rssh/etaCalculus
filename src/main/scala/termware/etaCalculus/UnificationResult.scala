@@ -33,6 +33,10 @@ object UnificationFailure {
 
   implicit val vartermError = TCUnificationFailureError
 
+  def fromMessage(msg: String, frs: ITerm, snd: ITerm, substitution: Substitution[IVarTerm,ITerm]): UnificationFailure = {
+    UnificationFailure(msg,frs,snd,None,substitution)
+  }
+
 }
 
 object TCUnificationFailureError extends TCErrorTerm[UnificationFailure]

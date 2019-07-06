@@ -177,13 +177,14 @@ object TCPlainStructured extends TCStructured[PlainStructured]
             UnificationFailure("name mismath",iterm(t),o,Some(f),s)
         }
       case IEtaTerm(oEta) =>
+        leftUnifyInSubst(t,s,oEta.baseTerm())
         // TODO: think, how to move context between, (structure context representation)
-        oEta.baseTerm() match {
-          case IStructured(oEtaStructured) =>
-            UnificationFailure("matching structured and eta is not supported yet",iterm(t),o,None,s)
-        }
+        //oEta.baseTerm() match {
+        //  case IStructured(oEtaStructured) =>
+            //UnificationFailure("matching structured and eta is not supported yet",iterm(t),o,None,s)
+        //}
         //leftUnifyInSubst(t,s,EtaEliminate(oEta.baseTerm()))
-        UnificationFailure("term kind mismatch",iterm(t),o,None,s)
+        //UnificationFailure("term kind mismatch",iterm(t),o,None,s)
       case _ =>
         UnificationFailure("term kind mismatch",iterm(t),o,None,s)
     }
@@ -397,53 +398,3 @@ object PlainStructured {
 
 }
 
-object TCStructuredEtaRepresentation extends TCStructured[StructuredEtaRepresentation]
-{
-  override def istructured(t: StructuredEtaRepresentation): IStructured = t
-
-  override def name(t: StructuredEtaRepresentation): IName = t.name()
-
-  override def arity(t: StructuredEtaRepresentation): Int = t.arity()
-
-  override def subterm(t: StructuredEtaRepresentation, i: Int): FastRefOption[ITerm] = ???
-
-  override def subterm(t: StructuredEtaRepresentation, n: IName): FastRefOption[ITerm] = ???
-
-  override def subtermMeta(t: StructuredEtaRepresentation, i: Int): FastRefOption[StructuredComponent] = ???
-
-  override def subtermMeta(t: StructuredEtaRepresentation, n: IName): FastRefOption[StructuredComponent] = ???
-
-  override def foldSubtermsWhile[S](t: StructuredEtaRepresentation, s0: S)(f: (S, ITerm) => S)(p: S => Boolean): S = ???
-
-  override def mapVars(t: StructuredEtaRepresentation, f: IVarTerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = ???
-
-  override def subst[N <: ITerm, V <: ITerm](t: StructuredEtaRepresentation, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = ???
-
-  override def map(t: StructuredEtaRepresentation, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = ???
-
-  override def leftUnifyInSubst(t: StructuredEtaRepresentation, s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = ???
-
-  override def mapSubterms(t: StructuredEtaRepresentation, f: ITerm => ITerm, vo: Map[IEtaTerm,IEtaTerm], fProcessVo: Boolean): ITerm = ???
-
-  override def hasPatternsRec(t: StructuredEtaRepresentation, trace:Map[IVarTerm,Boolean]): Boolean = ???
-
-  override def termEqNoRef(t: StructuredEtaRepresentation, otherTerm: ITerm): Boolean = ???
-
-}
-
-class StructuredEtaRepresentation(iEtaTerm: IEtaTerm, structuredBase: IStructured) extends IStructured
-{
-  override def tcStructured: TCStructured[StructuredEtaRepresentation] = TCStructuredEtaRepresentation
-
-  override type Carrier = StructuredEtaRepresentation
-
-  override def carrier: StructuredEtaRepresentation = this
-
-  override def name(): IName = structuredBase.name()
-
-  override def arity(): Int = structuredBase.arity()
-
-  override def subterm(i: Int): FastRefOption[ITerm] = ???
-
-
-}

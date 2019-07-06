@@ -196,4 +196,7 @@ object BoolPrimitive {
     }
   }
 
+  val TRUE = TCBoolPrimitive.TRUE
+  val FALSE = TCBoolPrimitive.FALSE
+
 }

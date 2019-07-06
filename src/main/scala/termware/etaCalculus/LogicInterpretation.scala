@@ -6,7 +6,8 @@ import termware.util.FastRefOption
 trait LogicInterpretation {
 
 
-  def check(expression: ITerm, substitution: Substitution[IVarTerm,ITerm]): LogicResult
+  def check(expression: ITerm, substitution: Substitution[IVarTerm,ITerm]): UnificationResult
+
 
 }
 
@@ -21,53 +22,53 @@ class StdLogicInterpretation(
 
   thisLogic =>
 
-  class CheckMatcher(substitution: Substitution[IVarTerm,ITerm]) extends TermKindTransformer[LogicResult] {
+  class CheckMatcher(substitution: Substitution[IVarTerm,ITerm]) extends TermKindTransformer[UnificationResult] {
 
-    override def onName(name: IName, vo: Map[IEtaTerm, IEtaTerm]): LogicResult =
-      LogicFailure.fromMessage("boolean expected", name)
+    override def onName(name: IName, vo: Map[IEtaTerm, IEtaTerm]): UnificationResult =
+      UnificationFailure.fromMessage("boolean expected", name, BoolPrimitive(true), substitution)
 
-    override def onVar(varTerm: IVarTerm, vo: Map[IEtaTerm, IEtaTerm]): LogicResult = {
+    override def onVar(varTerm: IVarTerm, vo: Map[IEtaTerm, IEtaTerm]): UnificationResult = {
       varTerm.owner.context().get(varTerm.name) match {
          case Some(value) => value.transform(this, vo) // TODO: add history
          case None =>
            substitution.get(varTerm) match {
              case Some(value) => value.transform(this,vo)
-             case None => LogicFailure.fromMessage(s"undefined variable", varTerm)
+             case None => failure(s"undefined variable", varTerm, substitution)
            }
       }
     }
 
-    override def onPrimitive(primitive: IPrimitive, vo: Map[IEtaTerm, IEtaTerm]): LogicResult = {
+    override def onPrimitive(primitive: IPrimitive, vo: Map[IEtaTerm, IEtaTerm]): UnificationResult = {
       if (primitive.primitiveTypeIndex == TCBoolPrimitive.primitiveTypeIndex(true)) {
         val booleanPrimitive = primitive.asInstanceOf[IPrimitive{ type Carrier=Boolean }]
         if (booleanPrimitive.carrier) {
-          LogicProof.TRUE
+          UnificationSuccess(substitution)
         } else {
-          LogicFailure.fromMessage("false result",primitive)
+          failure("false result",primitive,substitution)
         }
       } else {
-        LogicFailure.fromMessage("non-boolean result", primitive)
+        failure("non-boolean result", primitive,substitution)
       }
     }
 
-    override def onStructured(structured: IStructured, vo: Map[IEtaTerm, IEtaTerm]): LogicResult = {
+    override def onStructured(structured: IStructured, vo: Map[IEtaTerm, IEtaTerm]): UnificationResult = {
       functions.get(structured.name()) match {
         case Some(f) => val evaluated = new EvalMatcher(substitution).onStructured(structured,vo)
           evaluated.transform(this,vo)
-        case None => LogicFailure.fromMessage("Unknown function ",structured)
+        case None => failure("Unknown function ",structured, substitution)
       }
     }
 
-    override def onEta(eta: IEtaTerm, vo: Map[IEtaTerm, IEtaTerm]): LogicResult = {
+    override def onEta(eta: IEtaTerm, vo: Map[IEtaTerm, IEtaTerm]): UnificationResult = {
       eta.baseTerm().transform(this,vo)
     }
 
-    override def onError(error: IErrorTerm, vo: Map[IEtaTerm, IEtaTerm]): LogicResult = {
-      LogicFailure.apply(Set(),error,"error occured")
+    override def onError(error: IErrorTerm, vo: Map[IEtaTerm, IEtaTerm]): UnificationResult = {
+      failure("error occured",error,substitution)
     }
 
-    override def onPatternCondition(patternCondition: IPatternCondition, vo: Map[IEtaTerm, IEtaTerm]): LogicResult = {
-      LogicFailure.fromMessage("pattern can't be a logical expression",patternCondition)
+    override def onPatternCondition(patternCondition: IPatternCondition, vo: Map[IEtaTerm, IEtaTerm]): UnificationResult = {
+      failure("pattern can't be a logical expression",patternCondition,substitution)
     }
   }
 
@@ -86,12 +87,7 @@ class StdLogicInterpretation(
               case FastRefOption.Some(ptv) =>
                  substitution.get(varTerm) match {
                    case Some(v) =>
-                     if (ptv.interpret(substitution,v)) {
-                       v
-                     } else {
-                       //TODO: better diagnostics
-                       IErrorTerm(s"check failied, expression=${ptv.expression}, value=${v}")
-                     }
+                     v.transform(this,vo)
                    case None =>
                      IErrorTerm(s"unbinded variable: ${varTerm}")
                  }
@@ -143,8 +139,12 @@ class StdLogicInterpretation(
 
   }
 
-  override def check(expression: ITerm, substitution: Substitution[IVarTerm, ITerm]): LogicResult = {
+  override def check(expression: ITerm, substitution: Substitution[IVarTerm, ITerm]): UnificationResult = {
      expression.transform(new CheckMatcher(substitution), Map.empty)
+  }
+
+  def failure(msg:String,frs: ITerm, s: Substitution[IVarTerm,ITerm]): UnificationFailure = {
+    UnificationFailure(msg,frs,BoolPrimitive.TRUE,None,s)
   }
 
 }
