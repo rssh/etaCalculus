@@ -1,6 +1,5 @@
 package termware.etaCalculus
 
-import java.beans.Expression
 
 import termware.util.FastRefOption
 
@@ -156,8 +155,10 @@ object TCPlainPatternCondition extends TCPatternCondition[PlainPatternCondition]
   override def tcVar(t: Carrier): FastRefOption[TCVarTerm[Carrier]] = FastRefOption.empty
   override def tcPrimitive(t: Carrier): FastRefOption[TCPrimitive[Carrier]] = FastRefOption.empty
   override def tcStructured(t: Carrier): FastRefOption[TCStructured[Carrier]] = FastRefOption.empty
-  override def tcEta(t: Carrier): FastRefOption[TCEtaTerm[PlainPatternCondition]] = FastRefOption.empty
-  override def tcError(t: PlainPatternCondition): FastRefOption[TCErrorTerm[PlainPatternCondition]] = ???
+  override def tcEta(t: Carrier): FastRefOption[TCEtaTerm[Carrier]] = FastRefOption.empty
+  override def tcError(t: Carrier): FastRefOption[TCErrorTerm[Carrier]] = FastRefOption.empty
+
+  override def tcPatternCondition(t: Carrier): FastRefOption[TCPatternCondition[Carrier]] = FastRefOption(this)
 
   override def leftUnifyInSubst(t: PlainPatternCondition, s: Substitution[IVarTerm, ITerm], o: ITerm): UnificationResult = t.leftUnifyInSubst(s,o)
 
