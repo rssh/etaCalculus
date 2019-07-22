@@ -9,7 +9,7 @@ trait TCTerm[T] extends TCLeftUnificable[T] {
 
    def iterm(t:T):ITerm = CTerm(t,this)
 
-   def substVars(t:T, s: Substitution[IVarTerm,ITerm], vo:Map[IEtaTerm,IEtaTerm]): ITerm = {
+   def substVars(t:T, s: VarSubstitution, vo:Map[IEtaTerm,IEtaTerm]): ITerm = {
      mapVars(t, v => s.getOrElse(v,v), vo )
    }
 
@@ -51,6 +51,7 @@ trait TCTerm[T] extends TCLeftUnificable[T] {
    def isEta(t:T): Boolean = tcEta(t).isDefined
    def tcError(t:T): FastRefOption[TCErrorTerm[T]]
    def isError(t:T): Boolean = tcError(t).isDefined
+
 
 
 }
@@ -99,13 +100,11 @@ trait ITerm extends ILeftUnificable
 
   def asError(): FastRefOption[IErrorTerm] = tcTerm.tcError(carrier).map(_.ierror(carrier))
 
-  def transform[B](matcher: TermKindTransformer[B], vo: Map[IEtaTerm,IEtaTerm]):B
-
-  def leftUnifyInSubst(s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
+  def leftUnifyInSubst(s: VarSubstitution, o: ITerm): UnificationResult = {
     tcTerm.leftUnifyInSubst(carrier,s,o)
   }
 
-  def substVars(s: Substitution[IVarTerm,ITerm], vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
+  def substVars(s: VarSubstitution, vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
     tcTerm.substVars(carrier,s,vo)
   }
 
@@ -125,6 +124,10 @@ trait ITerm extends ILeftUnificable
     tcTerm.termEqNoRef(carrier,o)
   }
 
+  def kindTransform[B](matcher: TermKindTransformer[B], vo: Map[IEtaTerm,IEtaTerm]):B
+
+  def kindFold[S](s0:S)(folder: TermKindFolder[S]):S
+
 }
 
 object ITerm extends ITermConversions {
@@ -141,7 +144,7 @@ case class CTerm[T](t:T,tc:TCTerm[T]) extends ITerm
 
    def carrier: Carrier = t
 
-  override def transform[B](matcher: TermKindTransformer[B], vo: Map[IEtaTerm,IEtaTerm]): B = {
+  override def kindTransform[B](matcher: TermKindTransformer[B], vo: Map[IEtaTerm,IEtaTerm]): B = {
     // need to be reviewed after adding of each term type
     this match {
       case IName(x) => matcher.onName(x,vo)
@@ -152,7 +155,19 @@ case class CTerm[T](t:T,tc:TCTerm[T]) extends ITerm
       case IErrorTerm(x) => matcher.onError(x,vo)
       case IPatternCondition(x) => matcher.onPatternCondition(x,vo)
     }
+  }
 
+  override def kindFold[S](s0: S)(folder: TermKindFolder[S]): S = {
+    // need to be reviewed after adding of each term type
+    this match {
+      case IName(x) => folder.onName(x,s0)
+      case IPrimitive(x) => folder.onPrimitive(x,s0)
+      case IVarTerm(x) => folder.onVar(x,s0)
+      case IEtaTerm(x) => folder.onEta(x,s0)
+      case IStructured(x) => folder.onStructured(x,s0)
+      case IErrorTerm(x) => folder.onError(x,s0)
+      case IPatternCondition(x) => folder.onPatternCondition(x,s0)
+    }
   }
 
 }

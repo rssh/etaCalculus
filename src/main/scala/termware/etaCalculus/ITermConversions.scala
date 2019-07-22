@@ -8,4 +8,7 @@ trait ITermConversions {
   implicit def fromBoolean(x:Boolean): IPrimitive =
     TCBoolPrimitive.iprimitive(x)
 
+  implicit def fromString(x:String): IPrimitive =
+    TCStringPrimitive.iprimitive(x)
+
 }

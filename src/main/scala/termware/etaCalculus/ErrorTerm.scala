@@ -15,12 +15,12 @@ trait TCErrorTerm[T] extends TCTerm[T] {
 
   override def hasPatternsRec(t: T, trace: Map[IVarTerm,Boolean]): Boolean = false
 
-  override def leftUnifyInSubst(t: T, s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
+  override def leftUnifyInSubst(t: T, s: VarSubstitution, o: ITerm): UnificationResult = {
     UnificationFailure("attempt to unify error",iterm(t),o,None,s)
   }
 
 
-  override def substVars(t: T, s: Substitution[IVarTerm,ITerm], vo:Map[IEtaTerm,IEtaTerm]): ITerm = ierror(t)
+  override def substVars(t: T, s: VarSubstitution, vo:Map[IEtaTerm,IEtaTerm]): ITerm = ierror(t)
   override def mapVars(t:T, f: IVarTerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm = ierror(t)
 
   override def subst[N <: ITerm, V <: ITerm](t: T, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = ierror(t)
@@ -46,8 +46,18 @@ trait IErrorTerm extends ITerm {
 
   def tcError: TCErrorTerm[Carrier]
 
-  override def transform[B](matcher: TermKindTransformer[B], vo:Map[IEtaTerm,IEtaTerm]): B = {
+  override def kindTransform[B](matcher: TermKindTransformer[B], vo:Map[IEtaTerm,IEtaTerm]): B = {
     matcher.onError(this,vo)
+  }
+
+  override def kindFold[S](s0: S)(folder: TermKindFolder[S]): S = folder.onError(this,s0)
+
+  def shortMessage(): String = {
+    tcError.shortMessage(carrier)
+  }
+
+  def detailedMessage(): String = {
+    tcError.detailedMessage(carrier)
   }
 
 }

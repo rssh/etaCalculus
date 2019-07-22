@@ -6,13 +6,13 @@ sealed trait UnificationResult {
 
   def isFailure(): Boolean
 
-  val substitution: Substitution[IVarTerm,ITerm]
+  val substitution: VarSubstitution
 
 }
 
 
 
-case class UnificationSuccess(substitution: Substitution[IVarTerm,ITerm]) extends UnificationResult {
+case class UnificationSuccess(substitution: VarSubstitution) extends UnificationResult {
   override def isFailure(): Boolean = false
   override def isSuccess(): Boolean = true
 }
@@ -22,7 +22,7 @@ case class UnificationFailure(
     frsTerm:ITerm,
     sndTerm: ITerm,
     prevFailure:Option[UnificationFailure],
-    substitution: Substitution[IVarTerm,ITerm]) extends UnificationResult {
+    substitution: VarSubstitution) extends UnificationResult {
   override def isFailure(): Boolean = true
   override def isSuccess(): Boolean = false
 
@@ -33,7 +33,7 @@ object UnificationFailure {
 
   implicit val vartermError = TCUnificationFailureError
 
-  def fromMessage(msg: String, frs: ITerm, snd: ITerm, substitution: Substitution[IVarTerm,ITerm]): UnificationFailure = {
+  def fromMessage(msg: String, frs: ITerm, snd: ITerm, substitution: VarSubstitution): UnificationFailure = {
     UnificationFailure(msg,frs,snd,None,substitution)
   }
 

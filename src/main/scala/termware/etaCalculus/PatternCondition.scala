@@ -47,8 +47,12 @@ trait IPatternCondition extends ITerm {
   def substExpression(nExpr: ITerm): IPatternCondition =
     tcGuarded.substExpression(carrier, nExpr)
 
-  override def transform[B](matcher: TermKindTransformer[B], vo: Map[IEtaTerm, IEtaTerm]): B = {
+  override def kindTransform[B](matcher: TermKindTransformer[B], vo: Map[IEtaTerm, IEtaTerm]): B = {
      matcher.onPatternCondition(this,vo)
+  }
+
+  override def kindFold[S](s0: S)(folder: TermKindFolder[S]): S = {
+    folder.onPatternCondition(this,s0)
   }
 
 }
@@ -95,7 +99,7 @@ case class PlainPatternCondition(override val expression: ITerm) extends IPatter
     change(_.mapVars(f,vo))
   }
 
-  override def substVars(s: Substitution[IVarTerm, ITerm], vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
+  override def substVars(s: VarSubstitution, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
     change(_.substVars(s,vo))
   }
 
@@ -103,8 +107,8 @@ case class PlainPatternCondition(override val expression: ITerm) extends IPatter
      if (nTag <:< (ClassManifestFactory.classType(classOf[IPatternCondition]))) {
        val sn = s.asInstanceOf[Substitution[IPatternCondition,V]]
        sn.get(this) match {
-         case Some(x) => x
-         case None => change(_.subst(s,vo))
+         case FastRefOption.Some(x) => x
+         case FastRefOption.Empty() => change(_.subst(s,vo))
        }
      } else {
        change(_.subst(s,vo))
@@ -114,16 +118,16 @@ case class PlainPatternCondition(override val expression: ITerm) extends IPatter
   override def map(f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm =
     change(_.map(f,vo))
 
-  override def leftUnifyInSubst(s: Substitution[IVarTerm, ITerm], o: ITerm): UnificationResult = {
+  override def leftUnifyInSubst(s: VarSubstitution, o: ITerm): UnificationResult = {
     expression match {
       case IEtaTerm(etaExpression) =>
         etaExpression.context().get(PredefinedNames.THIS) match {
-          case Some(thisValue) => thisValue.leftUnifyInSubst(s,o) match {
+          case FastRefOption.Some(thisValue) => thisValue.leftUnifyInSubst(s,o) match {
               case UnificationSuccess(s1) =>
                 PredefLogicInterpretations.instance.check(etaExpression.baseTerm(),s1)
               case failure => failure
             }
-          case None => PlainPatternCondition(etaExpression.baseTerm()).leftUnifyInSubst(s,o)
+          case FastRefOption.Empty() => PlainPatternCondition(etaExpression.baseTerm()).leftUnifyInSubst(s,o)
         }
       case other =>
         PredefLogicInterpretations.instance.check(other,s)
@@ -160,6 +164,6 @@ object TCPlainPatternCondition extends TCPatternCondition[PlainPatternCondition]
 
   override def tcPatternCondition(t: Carrier): FastRefOption[TCPatternCondition[Carrier]] = FastRefOption(this)
 
-  override def leftUnifyInSubst(t: PlainPatternCondition, s: Substitution[IVarTerm, ITerm], o: ITerm): UnificationResult = t.leftUnifyInSubst(s,o)
+  override def leftUnifyInSubst(t: PlainPatternCondition, s: VarSubstitution, o: ITerm): UnificationResult = t.leftUnifyInSubst(s,o)
 
 }

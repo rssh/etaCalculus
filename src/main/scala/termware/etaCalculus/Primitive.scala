@@ -25,7 +25,7 @@ trait TCPrimitive[T] extends TCTerm[T]
   override def tcEta(t: T): FastRefOption[TCEtaTerm[T]] = FastRefOption.empty
   override def tcPatternCondition(t: T): FastRefOption[TCPatternCondition[T]] = FastRefOption.empty
 
-  override def leftUnifyInSubst(t: T, s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
+  override def leftUnifyInSubst(t: T, s: VarSubstitution, o: ITerm): UnificationResult = {
      o.asPrimitive match {
        case FastRefOption.Some(otherPrimitive) =>
          if (primitiveTypeIndex(t) == otherPrimitive.primitiveTypeIndex) {
@@ -42,7 +42,7 @@ trait TCPrimitive[T] extends TCTerm[T]
      }
   }
 
-  override def substVars(t: T, s: Substitution[IVarTerm,ITerm], vo: Map[IEtaTerm,IEtaTerm]): ITerm = iprimitive(t)
+  override def substVars(t: T, s: VarSubstitution, vo: Map[IEtaTerm,IEtaTerm]): ITerm = iprimitive(t)
 
   override def mapVars(t: T, f: IVarTerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = iprimitive(t)
 
@@ -93,11 +93,12 @@ trait IPrimitive extends ITerm
 
   def  primitiveTypeIndex: Int = tcPrimitive.primitiveTypeIndex(carrier)
 
-
-
-  override def transform[B](matcher: TermKindTransformer[B], vo:Map[IEtaTerm,IEtaTerm]): B =
+  override def kindTransform[B](matcher: TermKindTransformer[B], vo:Map[IEtaTerm,IEtaTerm]): B =
      matcher.onPrimitive(this,vo)
 
+  override def kindFold[S](s0: S)(folder: TermKindFolder[S]): S = {
+     folder.onPrimitive(this,s0)
+  }
 
 }
 
@@ -122,8 +123,11 @@ object PrimitiveTypeIndexes
 
   final val INT = 1
   final val BOOLEAN = 2
+  final val STRING = 3
 
 }
+
+
 
 object IntPrimitive {
 
@@ -198,5 +202,40 @@ object BoolPrimitive {
 
   val TRUE = TCBoolPrimitive.TRUE
   val FALSE = TCBoolPrimitive.FALSE
+
+}
+
+object TCStringPrimitive extends TCPrimitive[String] {
+
+  override def primitiveTypeIndex(t: String): Int = PrimitiveTypeIndexes.STRING
+
+}
+
+object StringPrimitive {
+
+  final def primitiveTypeIndex = PrimitiveTypeIndexes.STRING
+
+  object Term {
+    def unapply(arg: ITerm): FastRefOption[IPrimitive.Aux[String]] = {
+      if (arg.isPrimitive()) {
+        val p = arg.asPrimitive().get()
+        if (p.primitiveTypeIndex == primitiveTypeIndex) {
+          new FastRefOption(p.asInstanceOf[IPrimitive.Aux[String]])
+        } else {
+          FastRefOption.empty
+        }
+      } else FastRefOption.empty
+    }
+  }
+
+  def apply(x:String): IPrimitive.Aux[String] = CPrimitive[String](x,TCStringPrimitive)
+
+  def unapply(arg: ITerm): FastRefOption[String] = {
+    arg match {
+      case Term(t) => FastRefOption(t.value)
+      case _ => FastRefOption.empty
+    }
+  }
+
 
 }

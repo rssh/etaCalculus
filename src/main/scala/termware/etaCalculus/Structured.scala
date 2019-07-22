@@ -76,11 +76,16 @@ trait IStructured extends ITerm
     tcStructured.foldSubtermsWhile(carrier,s0)(f)(p)
   }
 
-  override def transform[B](matcher: TermKindTransformer[B], vo: Map[IEtaTerm,IEtaTerm]): B = {
+  override def kindTransform[B](matcher: TermKindTransformer[B], vo: Map[IEtaTerm,IEtaTerm]): B = {
     matcher.onStructured(this,vo)
   }
 
+  override def kindFold[S](s0: S)(folder: TermKindFolder[S]): S = {
+    folder.onStructured(this,s0)
+  }
+
 }
+
 
 object IStructured {
 
@@ -94,6 +99,10 @@ object IStructured {
   @inline
   def freeIndexed(name:String, byIndex: ITerm*): ITerm = {
     PlainStructured.freeIndexed(name,byIndex: _*)
+  }
+
+  def nameFreeIndexed(name: IName, byIndex: ITerm*): ITerm = {
+    PlainStructured.nameFreeIndexed(name,byIndex: _*)
   }
 
 
@@ -155,7 +164,7 @@ object TCPlainStructured extends TCStructured[PlainStructured]
     },vo,true)
   }
 
-  override def substVars(t: Carrier, s: Substitution[IVarTerm,ITerm], vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
+  override def substVars(t: Carrier, s: VarSubstitution, vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
     mapSubterms(t,{ _.substVars(s,vo) },vo,true)
   }
 
@@ -167,7 +176,7 @@ object TCPlainStructured extends TCStructured[PlainStructured]
      t.map(f,vo)
   }
 
-  override def leftUnifyInSubst(t: Carrier, s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
+  override def leftUnifyInSubst(t: Carrier, s: VarSubstitution, o: ITerm): UnificationResult = {
     o match {
       case IStructured(otherStructured) =>
         name(t).leftUnifyInSubst(s,otherStructured.name()) match {
@@ -192,7 +201,7 @@ object TCPlainStructured extends TCStructured[PlainStructured]
 
 
   @tailrec
-  private def unifySubterms(carrier: Carrier, s: Substitution[IVarTerm, ITerm], structured: IStructured, i: Int): UnificationResult = {
+  private def unifySubterms(carrier: Carrier, s: VarSubstitution, structured: IStructured, i: Int): UnificationResult = {
     if (i==arity(carrier)) {
       UnificationSuccess(s)
     } else {
@@ -267,7 +276,7 @@ case class PlainStructured(val metainfo: StructuredMetainfo,
        } else {
          t match {
            case IVarTerm(v) => vo.get(v.owner).map(v.changeOwner(_)).getOrElse(v)
-           case _ => t.transform(VarOwnerChangeTransformer, vo)
+           case _ => t.kindTransform(VarOwnerChangeTransformer, vo)
          }
        }
      }
@@ -294,7 +303,7 @@ case class PlainStructured(val metainfo: StructuredMetainfo,
 
   def fixVars(t:ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm = {
     if (vo.isEmpty) t
-    else t.transform(VarOwnerChangeTransformer,vo)
+    else t.kindTransform(VarOwnerChangeTransformer,vo)
   }
 
   override def subst[N <: ITerm, V <: ITerm](s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = {
@@ -308,13 +317,13 @@ case class PlainStructured(val metainfo: StructuredMetainfo,
   def substInternal[N <: ITerm,V <:ITerm](s:Substitution[N,V], vo:Map[IEtaTerm,IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = {
     mapSubterms({
       case nTag(x) => val tc = s.get(x) match {
-          case Some(v) => v
-          case None => x
+          case FastRefOption.Some(v) => v
+          case FastRefOption.Empty() => x
         }
         if (vo.isEmpty)
           tc
         else
-          tc.transform(VarOwnerChangeTransformer,vo)
+          tc.kindTransform(VarOwnerChangeTransformer,vo)
       case t => t.subst(s,vo)
     }, vo, true)
   }
@@ -369,7 +378,11 @@ object PlainStructured {
     * @return
     */
   def createMetainfo(sname:String, subtermsMetas:Seq[StructuredComponent]):StructuredMetainfo = {
-    val s0 = StructuredMetainfo(StringName(sname),IndexedSeq.empty,Map.empty)
+    createMetainfo(StringName(sname),subtermsMetas)
+  }
+
+  def createMetainfo(name:IName, subtermsMetas:Seq[StructuredComponent]):StructuredMetainfo = {
+    val s0 = StructuredMetainfo(name,IndexedSeq.empty,Map.empty)
     subtermsMetas.foldLeft(s0){ (s,e) =>
       val l = s.components.length
       val e1 = e.copy(index = l)
@@ -379,6 +392,7 @@ object PlainStructured {
       )
     }
   }
+
 
   def freeMetainfo(name:String, subtermNames: String*): StructuredMetainfo = {
     val metas = subtermNames.zipWithIndex.map{ case (name,index) =>StructuredComponent(StringName(name),index) }
@@ -391,6 +405,12 @@ object PlainStructured {
   }
 
   def freeIndexed(name:String, byIndex: ITerm*): ITerm = {
+    val metas = (0 until byIndex.length).map(i => StructuredComponent(IntName(i),i))
+    val metaInfo = createMetainfo(name,metas)
+    new PlainStructured(metaInfo, byIndex.toIndexedSeq)
+  }
+
+  def nameFreeIndexed(name:IName, byIndex: ITerm*): ITerm = {
     val metas = (0 until byIndex.length).map(i => StructuredComponent(IntName(i),i))
     val metaInfo = createMetainfo(name,metas)
     new PlainStructured(metaInfo, byIndex.toIndexedSeq)

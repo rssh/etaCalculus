@@ -6,7 +6,7 @@ import termware.util.FastRefOption
 trait LogicInterpretation {
 
 
-  def check(expression: ITerm, substitution: Substitution[IVarTerm,ITerm]): UnificationResult
+  def check(expression: ITerm, substitution: VarSubstitution): UnificationResult
 
 
 }
@@ -22,18 +22,18 @@ class StdLogicInterpretation(
 
   thisLogic =>
 
-  class CheckMatcher(substitution: Substitution[IVarTerm,ITerm]) extends TermKindTransformer[UnificationResult] {
+  class CheckMatcher(substitution: VarSubstitution) extends TermKindTransformer[UnificationResult] {
 
     override def onName(name: IName, vo: Map[IEtaTerm, IEtaTerm]): UnificationResult =
       UnificationFailure.fromMessage("boolean expected", name, BoolPrimitive(true), substitution)
 
     override def onVar(varTerm: IVarTerm, vo: Map[IEtaTerm, IEtaTerm]): UnificationResult = {
       varTerm.owner.context().get(varTerm.name) match {
-         case Some(value) => value.transform(this, vo) // TODO: add history
-         case None =>
+         case FastRefOption.Some(value) => value.kindTransform(this, vo) // TODO: add history
+         case FastRefOption.Empty() =>
            substitution.get(varTerm) match {
-             case Some(value) => value.transform(this,vo)
-             case None => failure(s"undefined variable", varTerm, substitution)
+             case FastRefOption.Some(value) => value.kindTransform(this,vo)
+             case FastRefOption.Empty() => failure(s"undefined variable", varTerm, substitution)
            }
       }
     }
@@ -54,13 +54,13 @@ class StdLogicInterpretation(
     override def onStructured(structured: IStructured, vo: Map[IEtaTerm, IEtaTerm]): UnificationResult = {
       functions.get(structured.name()) match {
         case Some(f) => val evaluated = new EvalMatcher(substitution).onStructured(structured,vo)
-          evaluated.transform(this,vo)
+          evaluated.kindTransform(this,vo)
         case None => failure("Unknown function ",structured, substitution)
       }
     }
 
     override def onEta(eta: IEtaTerm, vo: Map[IEtaTerm, IEtaTerm]): UnificationResult = {
-      eta.baseTerm().transform(this,vo)
+      eta.baseTerm().kindTransform(this,vo)
     }
 
     override def onError(error: IErrorTerm, vo: Map[IEtaTerm, IEtaTerm]): UnificationResult = {
@@ -72,7 +72,7 @@ class StdLogicInterpretation(
     }
   }
 
-  class EvalMatcher(substitution: Substitution[IVarTerm,ITerm]) extends TermKindTransformer[ITerm] {
+  class EvalMatcher(substitution: VarSubstitution) extends TermKindTransformer[ITerm] {
 
     thisMatcher =>
 
@@ -82,19 +82,19 @@ class StdLogicInterpretation(
 
     override def onVar(varTerm: IVarTerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
         varTerm.owner.context().get(varTerm.name) match {
-          case Some(value) =>
+          case FastRefOption.Some(value) =>
             value.asPatternCondition() match {
               case FastRefOption.Some(ptv) =>
                  substitution.get(varTerm) match {
-                   case Some(v) =>
-                     v.transform(this,vo)
-                   case None =>
+                   case FastRefOption.Some(v) =>
+                     v.kindTransform(this,vo)
+                   case FastRefOption.Empty() =>
                      IErrorTerm(s"unbinded variable: ${varTerm}")
                  }
               case FastRefOption.Empty() =>
-                value.transform(thisMatcher,vo)
+                value.kindTransform(thisMatcher,vo)
             }
-          case None =>
+          case FastRefOption.Empty() =>
             IErrorTerm(s"Unbinded variable: ${varTerm}")
         }
     }
@@ -106,7 +106,7 @@ class StdLogicInterpretation(
     override def onStructured(structured: IStructured, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
       functions.get(structured.name()) match {
         case Some(f) =>
-          val n = structured.mapSubterms(_.transform(thisMatcher,vo),vo,true)
+          val n = structured.mapSubterms(_.kindTransform(thisMatcher,vo),vo,true)
           n.asStructured() match {
             case FastRefOption.Some(ns) => f.apply(StdLogicInterpretation.FunInput(ns,substitution,this,vo))
             case other => IErrorTerm(s"Structure expected, have ${n}")
@@ -119,12 +119,12 @@ class StdLogicInterpretation(
     override def onEta(eta: IEtaTerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
        if (eta.hasPatterns()) {
          new PlainEtaTerm(
-           PlainEtaTerm.TraveseTransformers(eta, (x,vo) => x.transform(thisMatcher,vo) ,vo),
+           PlainEtaTerm.TraveseTransformers(eta, (x,vo) => x.kindTransform(thisMatcher,vo) ,vo),
            eta.context(),
            eta.baseTerm()
          )
        } else {
-         eta.baseTerm().transform(thisMatcher,vo)
+         eta.baseTerm().kindTransform(thisMatcher,vo)
          //eta.transform(UnEta, vo).transform(thisMatcher, vo)
        }
     }
@@ -139,11 +139,11 @@ class StdLogicInterpretation(
 
   }
 
-  override def check(expression: ITerm, substitution: Substitution[IVarTerm, ITerm]): UnificationResult = {
-     expression.transform(new CheckMatcher(substitution), Map.empty)
+  override def check(expression: ITerm, substitution: VarSubstitution): UnificationResult = {
+     expression.kindTransform(new CheckMatcher(substitution), Map.empty)
   }
 
-  def failure(msg:String,frs: ITerm, s: Substitution[IVarTerm,ITerm]): UnificationFailure = {
+  def failure(msg:String,frs: ITerm, s: VarSubstitution): UnificationFailure = {
     UnificationFailure(msg,frs,BoolPrimitive.TRUE,None,s)
   }
 
@@ -153,7 +153,7 @@ object StdLogicInterpretation {
 
   case class FunInput(
       term: IStructured,
-      substitution: Substitution[IVarTerm,ITerm],
+      substitution: VarSubstitution,
       eval: TermKindTransformer[ITerm],
       vo: Map[IEtaTerm,IEtaTerm]
   )
@@ -169,7 +169,7 @@ object PredefLogicInterpretations {
 
   def lAnd(in: StdLogicInterpretation.FunInput):ITerm = {
     in.term.foldSubtermsWhile[ITerm](TCBoolPrimitive.TRUE){ (s,e) =>
-        val e1 = e.transform(in.eval,in.vo) //Mb move deep down
+        val e1 = e.kindTransform(in.eval,in.vo) //Mb move deep down
         e1.asPrimitive() match {
           case FastRefOption.Some(pe) =>
             if (pe.primitiveTypeIndex == PrimitiveTypeIndexes.BOOLEAN) {
@@ -188,7 +188,7 @@ object PredefLogicInterpretations {
 
   def lOr(in:StdLogicInterpretation.FunInput):ITerm = {
     in.term.foldSubtermsWhile[ITerm](TCBoolPrimitive.FALSE){ (s,e) =>
-      val e1 = e.transform(in.eval, in.vo)
+      val e1 = e.kindTransform(in.eval, in.vo)
       e1 match {
         case BoolPrimitive(x) => e1
         case IErrorTerm(x) => x
@@ -202,7 +202,7 @@ object PredefLogicInterpretations {
       IErrorTerm(s"not arity shpuld be 1 in ${in.term}")
     } else {
       in.term.subterm(0) match {
-        case FastRefOption.Some(e) => val e1 = e.transform(in.eval,in.vo)
+        case FastRefOption.Some(e) => val e1 = e.kindTransform(in.eval,in.vo)
           e1 match {
             case BoolPrimitive(x) => BoolPrimitive(!x)
             case IErrorTerm(x) => x

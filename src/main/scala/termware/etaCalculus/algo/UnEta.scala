@@ -1,6 +1,7 @@
 package termware.etaCalculus.algo
 
 import termware.etaCalculus._
+import termware.util.FastRefOption
 
 object UnEta extends TermKindTransformer[ITerm] {
 
@@ -8,13 +9,13 @@ object UnEta extends TermKindTransformer[ITerm] {
 
   override def onVar(varTerm: IVarTerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
     varTerm.owner.context().get(varTerm.name) match {
-      case Some(value) =>
+      case FastRefOption.Some(value) =>
          if (value.hasPatterns()) {
            varTerm
          } else {
-           value.transform(UnEta, vo)
+           value.kindTransform(UnEta, vo)
          }
-      case None => IErrorTerm(s"Invalid name in term: ${varTerm}")
+      case FastRefOption.Empty() => IErrorTerm(s"Invalid name in term: ${varTerm}")
     }
   }
 
@@ -25,15 +26,15 @@ object UnEta extends TermKindTransformer[ITerm] {
   override def onStructured(structured: IStructured, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
     structured.mapVars( v =>
        v.owner.context().get(v.name) match {
-         case Some(value) => value.transform(UnEta, vo)
-         case None => IErrorTerm(s"can't resolve variable ${v.owner}")
+         case FastRefOption.Some(value) => value.kindTransform(UnEta, vo)
+         case FastRefOption.Empty() => IErrorTerm(s"can't resolve variable ${v.owner}")
        },
        vo
     )
   }
 
   override def onEta(eta: IEtaTerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
-    eta.baseTerm().transform(UnEta,vo)
+    eta.baseTerm().kindTransform(UnEta,vo)
   }
 
   override def onError(error: IErrorTerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = error

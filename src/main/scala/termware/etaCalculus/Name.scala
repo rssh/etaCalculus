@@ -1,5 +1,6 @@
 package termware.etaCalculus
 
+import termware.etaCalculus.IName.Aux
 import termware.util.FastRefOption
 
 import scala.reflect.ClassTag
@@ -45,7 +46,7 @@ trait TCName[T] extends TCTerm[T]
   override def tcStructured(t: T): FastRefOption[TCStructured[T]] = FastRefOption.empty
   override def tcPatternCondition(t: T): FastRefOption[TCPatternCondition[T]] = FastRefOption.empty
 
-  override def leftUnifyInSubst(t: T, s: Substitution[IVarTerm,ITerm], o: ITerm): UnificationResult = {
+  override def leftUnifyInSubst(t: T, s: VarSubstitution, o: ITerm): UnificationResult = {
      o.asName match {
        case FastRefOption.Some(otherName) =>
               if (compare(t,otherName) == 0) {
@@ -69,13 +70,13 @@ trait TCName[T] extends TCTerm[T]
     }
   }
 
-  override def substVars(t:T, s: Substitution[IVarTerm,ITerm], vo:Map[IEtaTerm,IEtaTerm]): ITerm = iname(t)
+  override def substVars(t:T, s: VarSubstitution, vo:Map[IEtaTerm,IEtaTerm]): ITerm = iname(t)
   override def mapVars(t: T, f: IVarTerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = iname(t)
 
   override def subst[N <: ITerm, V <: ITerm](t: T, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = {
     val name = iname(t)
     name match {
-      case nTag(x) => s.get(x).map(_.transform(VarOwnerChangeTransformer,vo)).getOrElse(name)
+      case nTag(x) => s.get(x).map(_.kindTransform(VarOwnerChangeTransformer,vo)).getOrElse(name)
       case other => name
     }
 
@@ -84,6 +85,7 @@ trait TCName[T] extends TCTerm[T]
   override def map(t: T, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
     iname(t)
   }
+
 
 
 
@@ -132,14 +134,25 @@ trait IName extends ITerm
 
   def  value: Value = tcName.value(carrier).asInstanceOf[Value]
 
-  override def transform[B](matcher: TermKindTransformer[B], vo: Map[IEtaTerm,IEtaTerm]): B =
+  override def kindTransform[B](matcher: TermKindTransformer[B], vo: Map[IEtaTerm,IEtaTerm]): B =
     matcher.onName(this,vo)
+
+  override def kindFold[S](s0: S)(folder: TermKindFolder[S]): S = {
+    folder.onName(this,s0)
+  }
+
+  // DSL
+  def apply(x:ITerm*): ITerm =
+    IStructured.nameFreeIndexed(this,x: _*)
+
 
 }
 
 object IName {
 
   def unapply(arg: ITerm): FastRefOption[IName] = arg.asName()
+
+  type Aux[X] = IName { type Carrier = X }
 
 }
 

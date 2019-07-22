@@ -14,7 +14,7 @@ trait TCVarTerm[T] extends TCTerm[T]
 
   def ivar(t:T): IVarTerm = CVarTerm(t,this)
 
-  override def leftUnifyInSubst(t: T, s: Substitution[IVarTerm, ITerm], o: ITerm): UnificationResult = {
+  override def leftUnifyInSubst(t: T, s: VarSubstitution, o: ITerm): UnificationResult = {
      o.asVar() match {
        case FastRefOption.Some(otherVar) =>
          if (otherVar.ownerRef == ownerRef(t)
@@ -36,31 +36,31 @@ trait TCVarTerm[T] extends TCTerm[T]
     }
   }
 
-  override def substVars(t: T, s: Substitution[IVarTerm,ITerm], vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
+  override def substVars(t: T, s: VarSubstitution, vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
     val v = ivar(t)
     s.get(v) match {
-      case Some(t) => t.transform(VarOwnerChangeTransformer,vo)
-      case None => fixOwner(v,vo)
+      case FastRefOption.Some(t) => t.kindTransform(VarOwnerChangeTransformer,vo)
+      case FastRefOption.Empty() => fixOwner(v,vo)
     }
   }
 
   override def mapVars(t: T, f: IVarTerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm = {
-    f(ivar(t)).transform(VarOwnerChangeTransformer,vo)
+    f(ivar(t)).kindTransform(VarOwnerChangeTransformer,vo)
   }
 
   override def subst[N <: ITerm, V <: ITerm](t: T, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = {
     val v = ivar(t)
     v match {
       case nTag(vn) => s.get(vn) match {
-          case Some(t) => t.transform(VarOwnerChangeTransformer, vo)
-          case None => fixOwner(v,vo)
+          case FastRefOption.Some(t) => t.kindTransform(VarOwnerChangeTransformer, vo)
+          case FastRefOption.Empty() => fixOwner(v,vo)
         }
       case other => fixOwner(v,vo)
     }
   }
 
   override def map(t: T, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
-    f(ivar(t)).transform(VarOwnerChangeTransformer,vo)
+    f(ivar(t)).kindTransform(VarOwnerChangeTransformer,vo)
   }
 
   override def termEqNoRef(t: T, otherTerm: ITerm): Boolean = {
@@ -116,7 +116,10 @@ trait IVarTerm extends ITerm {
     }
   }
 
-  override def transform[B](matcher: TermKindTransformer[B], vo:Map[IEtaTerm,IEtaTerm]): B = matcher.onVar(this,vo)
+  override def kindTransform[B](matcher: TermKindTransformer[B], vo:Map[IEtaTerm,IEtaTerm]): B =
+      matcher.onVar(this,vo)
+
+  override def kindFold[S](s0: S)(folder: TermKindFolder[S]): S = folder.onVar(this,s0)
 
   override def equals(obj: scala.Any): Boolean = {
       if (obj.isInstanceOf[IVarTerm]) {
@@ -134,10 +137,7 @@ trait IVarTerm extends ITerm {
   def hasValue(): Boolean = value().isDefined
 
   def value(): FastRefOption[ITerm] =
-    owner.context().get(name) match {
-      case Some(v) => FastRefOption(v)
-      case None => FastRefOption.empty
-    }
+    owner.context().get(name)
 
   def value_(): ITerm =
     owner.context().get(name).get
@@ -170,10 +170,10 @@ class PlainVarTerm(override val owner: IEtaTerm, override val name: IName) exten
 
   override def tcVarTerm: TCVarTerm[PlainVarTerm] = TCPlainVarTerm
 
-  override def substVars(s: Substitution[IVarTerm,ITerm], vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
+  override def substVars(s: VarSubstitution, vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
     s.get(this) match {
-      case Some(t) => if (vo.isEmpty) t else t.transform(VarOwnerChangeTransformer,vo)
-      case None => vo.get(this.owner).map(this.changeOwner).getOrElse(this)
+      case FastRefOption.Some(t) => if (vo.isEmpty) t else t.kindTransform(VarOwnerChangeTransformer,vo)
+      case FastRefOption.Empty() => vo.get(this.owner).map(this.changeOwner).getOrElse(this)
     }
   }
 
@@ -183,6 +183,8 @@ class PlainVarTerm(override val owner: IEtaTerm, override val name: IName) exten
     } else
       new PlainVarTerm(newOwner, name)
   }
+
+  override def toString = s"PlainVarTerm(${owner.refString},name)"
 
 }
 
