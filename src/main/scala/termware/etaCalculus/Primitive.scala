@@ -54,9 +54,9 @@ trait TCPrimitive[T] extends TCTerm[T]
     }
   }
 
-  override def map(t: T, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
-    iprimitive(t)
-  }
+  //override def map(t: T, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
+  //  iprimitive(t)
+  //}
 
   override def hasPatternsRec(t: T, trace: Map[IVarTerm, Boolean]): Boolean = false
 

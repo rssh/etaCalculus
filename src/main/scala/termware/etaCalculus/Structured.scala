@@ -172,9 +172,9 @@ object TCPlainStructured extends TCStructured[PlainStructured]
      t.subst(s,vo)
   }
 
-  override def map(t: Carrier, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
-     t.map(f,vo)
-  }
+  //override def map(t: Carrier, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
+  //   t.map(f,vo)
+  //}
 
   override def leftUnifyInSubst(t: Carrier, s: VarSubstitution, o: ITerm): UnificationResult = {
     o match {
@@ -328,7 +328,7 @@ case class PlainStructured(val metainfo: StructuredMetainfo,
     }, vo, true)
   }
 
-  override def map(f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = mapSubterms(f,vo, true)
+  //override def map(f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = mapSubterms(f,vo, true)
 
   override def termEqNoRef(o: ITerm): Boolean = {
     o match {

@@ -25,7 +25,7 @@ trait TCErrorTerm[T] extends TCTerm[T] {
 
   override def subst[N <: ITerm, V <: ITerm](t: T, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = ierror(t)
 
-  override def map(t: T, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = ierror(t)
+  //override def map(t: T, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = ierror(t)
 
   override def tcError(t: T): FastRefOption[TCErrorTerm[T]] = FastRefOption(this)
   override def tcName(t: T): FastRefOption[TCName[T]] = FastRefOption.empty

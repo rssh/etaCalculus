@@ -59,9 +59,9 @@ trait TCVarTerm[T] extends TCTerm[T]
     }
   }
 
-  override def map(t: T, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
-    f(ivar(t)).kindTransform(VarOwnerChangeTransformer,vo)
-  }
+  //override def map(t: T, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
+  //  f(ivar(t)).kindTransform(VarOwnerChangeTransformer,vo)
+  //}
 
   override def termEqNoRef(t: T, otherTerm: ITerm): Boolean = {
     otherTerm match {

@@ -63,43 +63,38 @@ class EtaBasicTest extends FunSuite {
       IStructured.freeIndexed("f",StringName("p"), StringName("q"), st1, st2 )
     )
 
-    System.out.println("st3="+SimplePrint(st3))
+    //System.out.println("st3="+SimplePrint(st3))
 
 
     // s = st2.p -> st3.q
+    val st2InSt3 = TermOps.subterm(st3,3).get().asEta().get()
     val s = MapBasedVarSubstitution(Map(
-        st2 -> Map( StringName("p") -> PlainVarTerm(st3,StringName("q")) )
+        st2InSt3 -> Map( StringName("p") -> PlainVarTerm(st3,StringName("q")) )
     ))
-    System.out.println(s)
+    //System.out.println(s"s=${SimplePrint(s)}")
 
     // st4 = st3.subst(s) = \eta p->3, q-> 5 f(p,q,f(p,q),\eta p'->2, q->5 f(p,q))
     val st4 = st3.substVars(s,Map())
 
-    System.out.println("st4="+SimplePrint(st4))
+    //System.out.println("st4="+SimplePrint(st4))
 
     // check, that st4 not contains reference
 
     val c = AllSubterms(st4).forall{ x =>
-      System.err.println("check0 "+x)
       x match {
         case IVarTerm(v) =>
-          System.err.println("check "+v)
           ! ((v.owner eq st3) || (v.owner eq st2))
         case _ => true
       }
     }
 
-    System.err.println("st2="+st2)
-    System.err.println("st3="+st3)
-    System.err.println("st4="+st4)
-
     assert(c, "all var changed")
 
     val newSt2 = TermOps.subterm(st4,3).get()
-    val newQ = TermOps.subterm(newSt2,1).get()
+    val newQ = TermOps.subterm(newSt2,0).get()
 
-    System.out.println("newSt2:"+SimplePrint(newSt2))
-    System.out.println("newQ:"+SimplePrint(newQ))
+    //System.out.println("newSt2:"+SimplePrint(newSt2))
+    //System.out.println("newQ:"+SimplePrint(newQ))
 
     newQ match {
       case IVarTerm(vq)=>
@@ -107,6 +102,15 @@ class EtaBasicTest extends FunSuite {
         assert(vq.owner eq st4)
       case _ =>
         assert(false,s"should be var, have $newQ")
+    }
+
+    val oldQ = TermOps.subterm(newSt2,1).get()
+    oldQ match {
+      case IVarTerm(vq) =>
+        assert(vq.name.valueString === "q")
+        assert(vq.owner eq newSt2)
+      case _ =>
+        assert(false,s"should be var, have $oldQ")
     }
 
   }

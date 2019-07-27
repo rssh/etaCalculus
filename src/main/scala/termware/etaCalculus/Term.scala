@@ -17,8 +17,6 @@ trait TCTerm[T] extends TCLeftUnificable[T] {
 
    def subst[N<:ITerm, V<:ITerm](t:T, s: Substitution[N,V], vo:Map[IEtaTerm,IEtaTerm])(implicit nTag: ClassTag[N]): ITerm
 
-   def map(t:T, f: ITerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm
-
    def hasPatterns(t:T): Boolean = hasPatternsRec(t,Map.empty)
 
    def hasPatternsRec(t:T, trace:Map[IVarTerm,Boolean]): Boolean
@@ -114,10 +112,6 @@ trait ITerm extends ILeftUnificable
 
   def subst[N<:ITerm,V<:ITerm](s: Substitution[N,V], vo: Map[IEtaTerm,IEtaTerm])(implicit nTag:ClassTag[N]): ITerm = {
     tcTerm.subst(carrier,s,vo)
-  }
-
-  def map(f: ITerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
-    tcTerm.map(carrier,f,vo)
   }
 
   def termEqNoRef(o: ITerm): Boolean = {

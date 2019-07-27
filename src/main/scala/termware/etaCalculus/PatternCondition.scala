@@ -115,8 +115,8 @@ case class PlainPatternCondition(override val expression: ITerm) extends IPatter
      }
   }
 
-  override def map(f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm =
-    change(_.map(f,vo))
+ // override def map(f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm =
+ //   change(_.map(f,vo))
 
   override def leftUnifyInSubst(s: VarSubstitution, o: ITerm): UnificationResult = {
     expression match {
@@ -152,8 +152,8 @@ object TCPlainPatternCondition extends TCPatternCondition[PlainPatternCondition]
     t.subst(s, vo)
   }
 
-  override def map(t: PlainPatternCondition, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm =
-    t.map(f,vo)
+  //override def map(t: PlainPatternCondition, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm =
+  //  t.map(f,vo)
 
   override def tcName(t: Carrier): FastRefOption[TCName[Carrier]] = FastRefOption.empty
   override def tcVar(t: Carrier): FastRefOption[TCVarTerm[Carrier]] = FastRefOption.empty

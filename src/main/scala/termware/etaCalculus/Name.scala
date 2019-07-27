@@ -82,9 +82,9 @@ trait TCName[T] extends TCTerm[T]
 
   }
 
-  override def map(t: T, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
-    iname(t)
-  }
+  //override def map(t: T, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
+  //  iname(t)
+  //}
 
 
 
@@ -203,7 +203,7 @@ case class IntName(override val value: Int) extends IName {
   override def carrier: IntName = this
   override def tcName: TCName[IntName] = IntName.TC
 
-  override def map(f: ITerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]) = this
+ // override def map(f: ITerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]) = this
 
 }
 

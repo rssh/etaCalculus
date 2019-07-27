@@ -83,31 +83,25 @@ object IEtaTerm {
     * @return
     */
   def create(context: NameSubstitution, baseTerm: ITerm): IEtaTerm = {
-     val names = context.keys()
+
      new PlainEtaTerm(
        new PlainEtaInitTransformers {
 
          override def contextTransformation(self: PlainEtaTerm, oldContext: NameSubstitution): NameSubstitution = {
-            oldContext.mapValues(_.map(substName(_,self),Map.empty))
+            val n2v = new NameToVarTransformer(self,context)
+            oldContext.mapValues(_.kindTransform(n2v,Map.empty))
          }
 
          override def bodyTransformer(self: PlainEtaTerm, oldBody: ITerm): ITerm = {
-            oldBody.map(substName(_,self),Map.empty)
-         }
-
-         def substName(t:ITerm, self: PlainEtaTerm): ITerm = {
-           t match {
-             case IName(n) => if (context.contains(n)) {
-                  PlainVarTerm(self,n)
-                } else n
-             case other => other
-           }
+            val n2v = new NameToVarTransformer(self,context)
+            oldBody.kindTransform(n2v,Map.empty)
          }
 
        },
        context,
        baseTerm
      )
+
   }
 
 }
@@ -117,6 +111,20 @@ case class CEtaTerm[T](carrier :T, tcEtaTerm:TCEtaTerm[T]) extends IEtaTerm
 {
 
   type Carrier = T
+
+}
+
+
+class NameToVarTransformer(owner: IEtaTerm, context: NameSubstitution)
+                                  extends VarOwnerChangeTransformer {
+
+  override def onName(name: IName, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
+    if (context.contains(name)) {
+      PlainVarTerm(owner,name)
+    } else {
+       name
+    }
+  }
 
 }
 
@@ -132,7 +140,9 @@ case object SelfRef extends VarOwner {
   override def fromSelf(self: IEtaTerm): IEtaTerm = self
 }
 
-object VarOwnerChangeTransformer extends TermKindTransformer[ITerm] {
+trait VarOwnerChangeTransformer extends TermKindTransformer[ITerm] {
+
+  thisVarOwnerChangeTransformer =>
 
   override def onName(name: IName, vo: Map[IEtaTerm,IEtaTerm]): ITerm = name
 
@@ -153,12 +163,12 @@ object VarOwnerChangeTransformer extends TermKindTransformer[ITerm] {
       new PlainEtaInitTransformers {
         override def contextTransformation(self: PlainEtaTerm, oldContext: NameSubstitution): NameSubstitution = {
           val nOwners = vo.updated(eta, self)
-          oldContext.mapValues(_.kindTransform(VarOwnerChangeTransformer,nOwners))
+          oldContext.mapValues(_.kindTransform[ITerm](thisVarOwnerChangeTransformer,nOwners))
         }
 
         override def bodyTransformer(self: PlainEtaTerm, oldBody: ITerm): ITerm = {
           val nOwners = vo.updated(eta, self)
-          oldBody.kindTransform(VarOwnerChangeTransformer,nOwners)
+          oldBody.kindTransform(thisVarOwnerChangeTransformer,nOwners)
         }
 
       },
@@ -180,6 +190,9 @@ object VarOwnerChangeTransformer extends TermKindTransformer[ITerm] {
   }
 
 }
+
+object VarOwnerChangeTransformer extends VarOwnerChangeTransformer
+
 
 trait PlainEtaInitTransformers {
 
@@ -215,9 +228,9 @@ object TCPlainEtaTerm extends TCEtaTerm[PlainEtaTerm] {
     t.subst(s,vo)
   }
 
-  override def map(t: PlainEtaTerm, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
-    t.map(f,vo)
-  }
+  //override def map(t: PlainEtaTerm, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
+  //  t.map(f,vo)
+  //}
 
   override def hasPatternsRec(t: PlainEtaTerm, trace: Map[IVarTerm,Boolean]): Boolean = t.hasPatternsRec(trace)
 
@@ -295,13 +308,13 @@ class PlainEtaTerm(
     ))
   }
 
-  override def map(f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
-    maybeSame(new PlainEtaTerm(
-      TraveseTransformers(thisEtaTerm,(t,vo)=>t.map(f,vo),vo),
-      context,
-      baseTerm
-    ))
-  }
+  //override def map(f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
+  //  maybeSame(new PlainEtaTerm(
+  //    TraveseTransformers(thisEtaTerm,(t,vo)=>t.map(f,vo),vo),
+  //    context,
+  //    baseTerm
+  //  ))
+  //}
 
   override def hasPatternsRec(trace: Map[IVarTerm,Boolean]): Boolean = baseTerm.hasPatternsRec(trace)
 

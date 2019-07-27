@@ -20,7 +20,7 @@ class SimplePrint(sb: StringBuilder) extends TermKindTransformer[Unit] {
   }
 
   override def onStructured(structured: IStructured, vo: Map[IEtaTerm, IEtaTerm]): Unit = {
-    sb.append(structured.name())
+    sb.append(structured.name.value.toString)
       .append("(")
     structured.foldSubtermsWhile(0){ (s,e) =>
       structured.subterm(s) match {
@@ -45,7 +45,7 @@ class SimplePrint(sb: StringBuilder) extends TermKindTransformer[Unit] {
        } else {
          sb.append(", ")
        }
-       sb.append(n)
+       sb.append(n.value.toString)
         .append("->")
         .append("")
         v.kindTransform(this,vo)
