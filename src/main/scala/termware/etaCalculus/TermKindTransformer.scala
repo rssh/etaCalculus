@@ -16,5 +16,7 @@ trait TermKindTransformer[B] {
 
   def onPatternCondition(patternCondition: IPatternCondition, vo: Map[IEtaTerm,IEtaTerm]): B
 
+  def onArrows(arrow:IArrows, vo: Map[IEtaTerm,IEtaTerm]): B
+
 }
 

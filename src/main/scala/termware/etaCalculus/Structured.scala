@@ -1,10 +1,10 @@
 package termware.etaCalculus
 
-import termware.etaCalculus.PlainStructured.{createMetainfo, freeMetainfo}
 import termware.util.FastRefOption
 
 import scala.annotation.tailrec
-import scala.reflect.ClassTag
+import scala.collection.immutable.IntMap
+
 
 case class StructuredComponent(
     name:IName,
@@ -30,7 +30,16 @@ trait TCStructured[T] extends TCTerm[T] {
 
   def subtermMeta(t:T, n:IName): FastRefOption[StructuredComponent]
 
+  def foldSubterms[S](t:T,s0:S)(f: (S,ITerm) => S)(p: S => Boolean): S  =
+    foldSubtermsWhile(t,s0)(f)(_ => true)
+
   def foldSubtermsWhile[S](t:T,s0:S)(f: (S,ITerm) => S)(p: S => Boolean): S
+
+  def foldMetas[S](t:T, s0:S)(f: (S,StructuredComponent) => S): S = {
+    foldMetasWhile(t,s0)(f)(_ => true)
+  }
+
+  def foldMetasWhile[S](t:T,s0:S)(f: (S,StructuredComponent) => S)(p: S=>Boolean):S
 
   def mapSubterms(t:T, f: ITerm => ITerm, vo:Map[IEtaTerm,IEtaTerm], fProcessVO: Boolean): ITerm
 
@@ -41,6 +50,7 @@ trait TCStructured[T] extends TCTerm[T] {
   override def tcEta(t: T): FastRefOption[TCEtaTerm[T]] = FastRefOption.empty
   override def tcError(t: T): FastRefOption[TCErrorTerm[T]] = FastRefOption.empty
   override def tcPatternCondition(t: T): FastRefOption[TCPatternCondition[T]] = FastRefOption.empty
+  override def tcArrows(t: T): FastRefOption[TCArrows[T]] = FastRefOption.empty
 
 }
 
@@ -68,6 +78,15 @@ trait IStructured extends ITerm
     tcStructured.subterm(carrier,n)
   }
 
+  def subtermMeta(i:Int): FastRefOption[StructuredComponent] = {
+    tcStructured.subtermMeta(carrier,i)
+  }
+
+  def subtermMeta(n:IName): FastRefOption[StructuredComponent] = {
+    tcStructured.subtermMeta(carrier,n)
+  }
+
+
   def mapSubterms(f:ITerm => ITerm, vo:Map[IEtaTerm,IEtaTerm], fProcessVO: Boolean): ITerm = {
     tcStructured.mapSubterms(carrier,f,vo, fProcessVO)
   }
@@ -76,6 +95,16 @@ trait IStructured extends ITerm
     tcStructured.foldSubtermsWhile(carrier,s0)(f)(p)
   }
 
+  def foldMetas[S](s0:S)(f: (S,StructuredComponent) => S): S = {
+    tcStructured.foldMetas(carrier,s0)(f)
+  }
+
+  def foldMetasWhile[S](s0:S)(f: (S,StructuredComponent) => S)(p: S=>Boolean): S = {
+    tcStructured.foldMetasWhile(carrier,s0)(f)(p)
+  }
+
+  def metas(): IndexedSeq[StructuredComponent]
+
   override def kindTransform[B](matcher: TermKindTransformer[B], vo: Map[IEtaTerm,IEtaTerm]): B = {
     matcher.onStructured(this,vo)
   }
@@ -83,6 +112,19 @@ trait IStructured extends ITerm
   override def kindFold[S](s0: S)(folder: TermKindFolder[S]): S = {
     folder.onStructured(this,s0)
   }
+
+  def builder(): IStructuredBuilder
+
+}
+
+
+trait IStructuredBuilder {
+
+  def  addArg(value:ITerm): Either[String,IStructuredBuilder]
+
+  def  setNamedArg(name: IName, value: ITerm): Either[String, IStructuredBuilder]
+
+  def  toTerm(): IStructured
 
 }
 
@@ -105,6 +147,53 @@ object IStructured {
     PlainStructured.nameFreeIndexed(name,byIndex: _*)
   }
 
+  // make all default values explicit
+  def fullVariant(arg:IStructured): Either[String,IStructured] = {
+    val metas = arg.metas()
+    val metaArity = metas.size
+    // Think - prototype with mutable builder
+    var builder = arg.builder()
+    var i = arg.arity()
+    var retval: Either[String,IStructured] = Right(arg)
+    while(i < metas.size && retval.isRight) {
+      metas(i).defValue match {
+        case None =>
+          retval = Left(s"Can't expand: ${arg.name()}(${i}) have no default value")
+        case Some(v) => builder.addArg(v) match {
+          case Left(message) => retval = Left(message)
+          case Right(nBuilder) => builder = nBuilder
+        }
+      }
+      i = i+1
+    }
+    if (retval.isRight) {
+      retval = Right(builder.toTerm())
+    }
+    retval
+  }
+
+  def allVariants(arg:IStructured): Seq[IStructured] = {
+    var candidate = arg
+    var retval: List[IStructured] = List(arg)
+    var i = arg.arity()
+    val metas = arg.metas()
+    val builder = arg.builder()
+    var quit = false
+    while(i < metas.size && !quit) {
+      metas(i).defValue match {
+        case None => quit = false
+        case Some(v) =>
+          builder.addArg(v) match {
+            case Left(e) => // error, assume
+                            quit = true
+            case Right(nBuilder) =>
+               retval = nBuilder.toTerm() :: retval
+          }
+      }
+      i = i + 1
+    }
+    retval.reverse
+  }
 
 }
 
@@ -157,6 +246,27 @@ object TCPlainStructured extends TCStructured[PlainStructured]
     s
   }
 
+  override def foldMetas[S](t: Carrier, s0: S)(f: (S, StructuredComponent) => S): S = {
+    var s = s0
+    var i = 0
+    val n = arity(t)
+    while(i<n) {
+      s = f(s,t.metainfo.components(i))
+      i += 1
+    }
+    s
+  }
+
+  override def foldMetasWhile[S](t: Carrier, s0: S)(f: (S, StructuredComponent) => S)(p: S => Boolean): S = {
+    var s = s0
+    var i = 0
+    val n = arity(t)
+    while(p(s) && i<n) {
+      s = f(s,t.metainfo.components(i))
+      i += 1
+    }
+    s
+  }
 
   override def mapVars(t: Carrier, f: IVarTerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
     mapSubterms(t,{ prev =>
@@ -168,13 +278,12 @@ object TCPlainStructured extends TCStructured[PlainStructured]
     mapSubterms(t,{ _.substVars(s,vo) },vo,true)
   }
 
+  /*
   override def subst[N<: ITerm, V <: ITerm](t: Carrier, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag:ClassTag[N]): ITerm = {
      t.subst(s,vo)
   }
 
-  //override def map(t: Carrier, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
-  //   t.map(f,vo)
-  //}
+   */
 
   override def leftUnifyInSubst(t: Carrier, s: VarSubstitution, o: ITerm): UnificationResult = {
     o match {
@@ -306,29 +415,10 @@ case class PlainStructured(val metainfo: StructuredMetainfo,
     else t.kindTransform(VarOwnerChangeTransformer,vo)
   }
 
-  override def subst[N <: ITerm, V <: ITerm](s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = {
-    this match {
-      case nTag(thisN) => s.get(thisN).map(fixVars(_,vo)).getOrElse(substInternal(s,vo))
-      case _ => substInternal(s,vo)
-    }
-
+  override def metas(): IndexedSeq[StructuredComponent] = {
+    metainfo.components
   }
 
-  def substInternal[N <: ITerm,V <:ITerm](s:Substitution[N,V], vo:Map[IEtaTerm,IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = {
-    mapSubterms({
-      case nTag(x) => val tc = s.get(x) match {
-          case FastRefOption.Some(v) => v
-          case FastRefOption.Empty() => x
-        }
-        if (vo.isEmpty)
-          tc
-        else
-          tc.kindTransform(VarOwnerChangeTransformer,vo)
-      case t => t.subst(s,vo)
-    }, vo, true)
-  }
-
-  //override def map(f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = mapSubterms(f,vo, true)
 
   override def termEqNoRef(o: ITerm): Boolean = {
     o match {
@@ -354,6 +444,8 @@ case class PlainStructured(val metainfo: StructuredMetainfo,
     }
   }
 
+  override def builder(): IStructuredBuilder =
+    new PlainStructuredBuilder(this,List(), IntMap.empty)
 
   override def hasPatterns(): Boolean = {
     _hasPatterns
@@ -362,6 +454,8 @@ case class PlainStructured(val metainfo: StructuredMetainfo,
   override def hasPatternsRec(trace: Map[IVarTerm, Boolean]): Boolean = {
     subterms.exists(_.hasPatternsRec(trace))
   }
+
+
 
   private[this] lazy val _hasPatterns = hasPatternsRec(Map.empty)
 
@@ -418,3 +512,84 @@ object PlainStructured {
 
 }
 
+case class ArgsWithOptMeta(arg:ITerm, meta: Option[StructuredComponent])
+
+case class PlainStructuredBuilder(
+    origin: PlainStructured,
+    additionalArgs: List[ArgsWithOptMeta],
+    changedArgs: IntMap[ITerm]
+ ) extends IStructuredBuilder {
+
+  override def addArg(value: ITerm): Either[String, IStructuredBuilder] = {
+    Right(copy(additionalArgs = ArgsWithOptMeta(value,None)::additionalArgs))
+  }
+
+  override def setNamedArg(name: IName, value: ITerm): Either[String, IStructuredBuilder] = {
+    origin.subtermMeta(name) match {
+      case FastRefOption.Empty() =>
+          val nArg = ArgsWithOptMeta(value, Some(StructuredComponent(name)))
+          Right(copy(additionalArgs = nArg :: additionalArgs))
+      case FastRefOption.Some(m) =>
+          m.constraint.leftUnifyInSubst(VarSubstitution.empty(),value) match {
+            case UnificationSuccess(s) =>
+              Right(copy(changedArgs = changedArgs.updated(m.index,value)))
+            case UnificationFailure(msg,l,r,p,s) =>
+              Left("Check unfication failed")
+          }
+    }
+  }
+
+  override def toTerm(): IStructured = {
+    import scala.collection.mutable.{IndexedSeq => MutableIndexedSeq}
+    val args = additionalArgs.reverse
+    val subtermsBuilder = Array.newBuilder[ITerm]
+    subtermsBuilder.addAll(origin.subterms)
+    val componentsBuilder = MutableIndexedSeq.newBuilder[StructuredComponent]
+    var nAddedComponents = 0
+    val nMetas = origin.metainfo.components.size
+
+
+
+    def addComponent(c: StructuredComponent): Unit = {
+      if (nAddedComponents == 0 && nMetas != 0) {
+        componentsBuilder.addAll(origin.metainfo.components)
+        nAddedComponents += origin.metainfo.components.size
+      }
+      componentsBuilder.addOne(c)
+    }
+
+    var i = origin.subterms.size
+    for( a <- args) {
+       a.meta match {
+         case None =>
+           subtermsBuilder.addOne(a.arg)
+           if (i >= nMetas) {
+             addComponent(StructuredComponent(IntName(i)))
+           }
+         case Some(m) =>
+             while(i < nMetas) {
+               val cm = origin.metainfo.components(i)
+               cm.defValue match {
+                 case Some(x) => subtermsBuilder.addOne(x)
+                 case None => throw new IllegalStateException("addName before meta exhaused")
+               }
+               i = i+1
+             }
+           subtermsBuilder.addOne(a.arg)
+           addComponent(m)
+       }
+       i = i + 1
+    }
+    val subtermsArray = subtermsBuilder.result()
+    for( (i,v) <- changedArgs) {
+       subtermsArray(i) = v
+    }
+    val nMetaInfo = if (nAddedComponents > 0) {
+      origin.metainfo.copy(components = componentsBuilder.result().toIndexedSeq)
+    } else {
+      origin.metainfo
+    }
+    PlainStructured(nMetaInfo,subtermsArray.toIndexedSeq)
+  }
+
+}

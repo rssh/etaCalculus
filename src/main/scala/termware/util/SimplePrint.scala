@@ -1,6 +1,6 @@
 package termware.util
 
-import termware.etaCalculus.{IErrorTerm, IEtaTerm, IName, IPatternCondition, IPrimitive, IStructured, ITerm, IVarTerm, TermKindTransformer, VarSubstitution}
+import termware.etaCalculus.{IArrows, IErrorTerm, IEtaTerm, IName, IPatternCondition, IPrimitive, IStructured, ITerm, IVarTerm, TermKindTransformer, VarSubstitution}
 
 class SimplePrint(sb: StringBuilder) extends TermKindTransformer[Unit] {
 
@@ -64,6 +64,21 @@ class SimplePrint(sb: StringBuilder) extends TermKindTransformer[Unit] {
     sb.append("*(")
     patternCondition.expression.kindTransform(this,vo)
     sb.append(")")
+  }
+
+  override def onArrows(arrows: IArrows, vo: Map[IEtaTerm, IEtaTerm]): Unit = {
+    val linear = arrows.linear()
+    sb.append("[")
+    var frs = true
+    linear.foreach { case (x,y) =>
+      if (!frs) {
+        sb.append("|")
+      } else frs = false
+      x.kindTransform(this,vo)
+      sb.append("->")
+      y.kindTransform(this,vo)
+    }
+    sb.append("]")
   }
 
 }

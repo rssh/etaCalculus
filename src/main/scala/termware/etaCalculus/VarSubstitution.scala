@@ -30,6 +30,13 @@ object VarSubstitution {
 
   def empty() = MapBasedVarSubstitution.empty
 
+  def apply(pairs: (IVarTerm,ITerm)* ): VarSubstitution = {
+    val s0: VarSubstitution = empty()
+    pairs.foldLeft(s0) { (s, e) =>
+      s.updated(e._1, e._2)
+    }
+  }
+
 }
 
 
@@ -60,6 +67,7 @@ case class MapBasedVarSubstitution(values: Map[IEtaTerm,Map[IName,ITerm]]) exten
       }
     )
   }
+
 
   override def remove(x:IVarTerm): VarSubstitution = {
     val owner = x.owner

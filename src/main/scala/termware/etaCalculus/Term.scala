@@ -15,10 +15,21 @@ trait TCTerm[T] extends TCLeftUnificable[T] {
 
    def mapVars(t:T, f: IVarTerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm
 
-   def subst[N<:ITerm, V<:ITerm](t:T, s: Substitution[N,V], vo:Map[IEtaTerm,IEtaTerm])(implicit nTag: ClassTag[N]): ITerm
+  // def subst[N<:ITerm, V<:ITerm](t:T, s: Substitution[N,V], vo:Map[IEtaTerm,IEtaTerm])(implicit nTag: ClassTag[N]): ITerm
 
+  /**
+    * true, if term contains universal patterns (i.e. patternCondition)
+    */
    def hasPatterns(t:T): Boolean = hasPatternsRec(t,Map.empty)
 
+  /**
+    * recursive version of hasPatterns, which track circular dependencies in trace.
+    * Public as
+    * True, when term have patternCondition inside.
+    * @param t
+    * @param trace
+    * @return
+    */
    def hasPatternsRec(t:T, trace:Map[IVarTerm,Boolean]): Boolean
 
   /**
@@ -35,6 +46,8 @@ trait TCTerm[T] extends TCLeftUnificable[T] {
    // TODO: define with trace and equential transparency.
    //def termEq(t:T, otherTerm: ITerm, trace: Map[IVarTerm,ITerm]): Boolean
 
+   def tcArrows(t: T): FastRefOption[TCArrows[T]]
+   def isArrows(t: T): Boolean = tcArrows(t).isDefined
    def tcName(t: T): FastRefOption[TCName[T]]
    def isName(t: T): Boolean = tcName(t).isDefined
    def tcVar(t:T): FastRefOption[TCVarTerm[T]]
@@ -51,7 +64,6 @@ trait TCTerm[T] extends TCLeftUnificable[T] {
    def isError(t:T): Boolean = tcError(t).isDefined
 
 
-
 }
 
 trait ITerm extends ILeftUnificable
@@ -63,11 +75,21 @@ trait ITerm extends ILeftUnificable
 
   def carrier: Carrier
 
+ // def headName: IName
+
+ // def hasArity: Boolean
+
+ // def arity: Int
+
   def hasPatterns(): Boolean = hasPatternsRec(Map.empty)
 
   def hasPatternsRec(trace:Map[IVarTerm,Boolean]): Boolean = {
     tcTerm.hasPatternsRec(carrier, trace)
   }
+
+  def isRuleset(): Boolean = tcTerm.isName(carrier)
+
+  def asArrows(): FastRefOption[IArrows] = tcTerm.tcArrows(carrier).map(_.iarrows(carrier))
 
   def isName(): Boolean = tcTerm.isName(carrier)
 
@@ -110,9 +132,9 @@ trait ITerm extends ILeftUnificable
     tcTerm.mapVars(carrier,f, vo)
   }
 
-  def subst[N<:ITerm,V<:ITerm](s: Substitution[N,V], vo: Map[IEtaTerm,IEtaTerm])(implicit nTag:ClassTag[N]): ITerm = {
-    tcTerm.subst(carrier,s,vo)
-  }
+ // def subst[N<:ITerm,V<:ITerm](s: Substitution[N,V], vo: Map[IEtaTerm,IEtaTerm])(implicit nTag:ClassTag[N]): ITerm = {
+ //   tcTerm.subst(carrier,s,vo)
+ // }
 
   def termEqNoRef(o: ITerm): Boolean = {
     tcTerm.termEqNoRef(carrier,o)
@@ -166,8 +188,3 @@ case class CTerm[T](t:T,tc:TCTerm[T]) extends ITerm
 
 }
 
-trait TCTermLowPriorityImplicits {
-
-
-
-}

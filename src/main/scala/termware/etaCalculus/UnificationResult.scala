@@ -19,8 +19,8 @@ case class UnificationSuccess(substitution: VarSubstitution) extends Unification
 
 case class UnificationFailure(
     msg: String,
-    frsTerm:ITerm,
-    sndTerm: ITerm,
+    left:ITerm,
+    right: ITerm,
     prevFailure:Option[UnificationFailure],
     substitution: VarSubstitution) extends UnificationResult {
   override def isFailure(): Boolean = true
@@ -42,11 +42,11 @@ object UnificationFailure {
 object TCUnificationFailureError extends TCErrorTerm[UnificationFailure]
 {
   override def shortMessage(t: UnificationFailure): String = {
-    s"Unification Failure: ${t.frsTerm} and ${t.sndTerm}"
+    s"Unification Failure: ${t.left} and ${t.right}"
   }
 
   override def detailedMessage(t: UnificationFailure): String = {
-    s"Unification Failure: ${t.frsTerm} and ${t.sndTerm}: ${t.msg} ${t.prevFailure.getOrElse("")}"
+    s"Unification Failure: ${t.left} and ${t.right}: ${t.msg} ${t.prevFailure.getOrElse("")}"
   }
 
   override def traceData(t: UnificationFailure): Any = {

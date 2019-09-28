@@ -24,6 +24,7 @@ trait TCPrimitive[T] extends TCTerm[T]
   override def tcStructured(t: T): FastRefOption[TCStructured[T]] = FastRefOption.empty
   override def tcEta(t: T): FastRefOption[TCEtaTerm[T]] = FastRefOption.empty
   override def tcPatternCondition(t: T): FastRefOption[TCPatternCondition[T]] = FastRefOption.empty
+  override def tcArrows(t: T): FastRefOption[TCArrows[T]] = FastRefOption.empty
 
   override def leftUnifyInSubst(t: T, s: VarSubstitution, o: ITerm): UnificationResult = {
      o.asPrimitive match {
@@ -46,13 +47,14 @@ trait TCPrimitive[T] extends TCTerm[T]
 
   override def mapVars(t: T, f: IVarTerm => ITerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = iprimitive(t)
 
+  /*
   override def subst[N <: ITerm, V <: ITerm](t: T, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag:ClassTag[N]): ITerm = {
     val pt = iprimitive(t)
     pt match {
       case nTag(npt) => s.get(npt).getOrElse(pt)
       case _ => pt
     }
-  }
+  }*/
 
   //override def map(t: T, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
   //  iprimitive(t)

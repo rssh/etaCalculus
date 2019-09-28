@@ -23,10 +23,6 @@ trait TCErrorTerm[T] extends TCTerm[T] {
   override def substVars(t: T, s: VarSubstitution, vo:Map[IEtaTerm,IEtaTerm]): ITerm = ierror(t)
   override def mapVars(t:T, f: IVarTerm => ITerm, vo:Map[IEtaTerm,IEtaTerm]): ITerm = ierror(t)
 
-  override def subst[N <: ITerm, V <: ITerm](t: T, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = ierror(t)
-
-  //override def map(t: T, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = ierror(t)
-
   override def tcError(t: T): FastRefOption[TCErrorTerm[T]] = FastRefOption(this)
   override def tcName(t: T): FastRefOption[TCName[T]] = FastRefOption.empty
   override def tcPrimitive(t: T): FastRefOption[TCPrimitive[T]] = FastRefOption.empty
@@ -34,6 +30,7 @@ trait TCErrorTerm[T] extends TCTerm[T] {
   override def tcStructured(t: T): FastRefOption[TCStructured[T]] = FastRefOption.empty
   override def tcEta(t: T): FastRefOption[TCEtaTerm[T]] = FastRefOption.empty
   override def tcPatternCondition(t: T): FastRefOption[TCPatternCondition[T]] = FastRefOption.empty
+  override def tcArrows(t: T): FastRefOption[TCArrows[T]] = FastRefOption.empty
 
   override def termEqNoRef(t: T, otherTerm: ITerm): Boolean = t.equals(otherTerm.carrier)
 
@@ -67,6 +64,7 @@ object IErrorTerm {
   def unapply(arg: ITerm): FastRefOption[IErrorTerm] = arg.asError()
 
   def apply(msg: String): IErrorTerm = new CErrorTerm[String](msg, TCStringErrorTerm)
+
 }
 
 case class CErrorTerm[T](carrier:T, tcError: TCErrorTerm[T]) extends IErrorTerm {

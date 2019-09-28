@@ -70,6 +70,12 @@ class StdLogicInterpretation(
     override def onPatternCondition(patternCondition: IPatternCondition, vo: Map[IEtaTerm, IEtaTerm]): UnificationResult = {
       failure("pattern can't be a logical expression",patternCondition,substitution)
     }
+
+    // TODO: applyArroe
+    override def onArrows(arrow: IArrows, vo: Map[IEtaTerm, IEtaTerm]): UnificationResult = {
+      failure("arrow can't be a logical expression",arrow,substitution)
+    }
+
   }
 
   class EvalMatcher(substitution: VarSubstitution) extends TermKindTransformer[ITerm] {
@@ -136,6 +142,12 @@ class StdLogicInterpretation(
     override def onPatternCondition(patternCondition: IPatternCondition, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
       IErrorTerm("Pattern Condition can't be part of PatternCondition expression")
     }
+
+    // TODO: applyArroe
+    override def onArrows(arrow: IArrows, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
+      IErrorTerm("arrow can't be a logical expression")
+    }
+
 
   }
 

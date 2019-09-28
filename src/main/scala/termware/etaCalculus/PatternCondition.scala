@@ -23,6 +23,7 @@ trait TCPatternCondition[T] extends TCTerm[T] {
   override def tcVar(t: T): FastRefOption[TCVarTerm[T]] = FastRefOption.empty
   override def tcPrimitive(t: T): FastRefOption[TCPrimitive[T]] = FastRefOption.empty
   override def tcError(t: T): FastRefOption[TCErrorTerm[T]] = FastRefOption.empty
+  override def tcArrows(t: T): FastRefOption[TCArrows[T]] =  FastRefOption.empty
 
 
   override def termEqNoRef(t: T, otherTerm: ITerm): Boolean = {
@@ -68,6 +69,8 @@ object IPatternCondition
     }
   }
 
+  val all: IPatternCondition = PlainPatternCondition(BoolPrimitive.TRUE)
+  val nothing: IPatternCondition = PlainPatternCondition(BoolPrimitive.FALSE)
 
 }
 
@@ -103,6 +106,7 @@ case class PlainPatternCondition(override val expression: ITerm) extends IPatter
     change(_.substVars(s,vo))
   }
 
+  /*
   override def subst[N <: ITerm, V <: ITerm](s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = {
      if (nTag <:< (ClassManifestFactory.classType(classOf[IPatternCondition]))) {
        val sn = s.asInstanceOf[Substitution[IPatternCondition,V]]
@@ -114,9 +118,7 @@ case class PlainPatternCondition(override val expression: ITerm) extends IPatter
        change(_.subst(s,vo))
      }
   }
-
- // override def map(f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm =
- //   change(_.map(f,vo))
+  */
 
   override def leftUnifyInSubst(s: VarSubstitution, o: ITerm): UnificationResult = {
     expression match {
@@ -148,12 +150,12 @@ object TCPlainPatternCondition extends TCPatternCondition[PlainPatternCondition]
 
   override def mapVars(t: PlainPatternCondition, f: IVarTerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = t.mapVars(f,vo)
 
+  /*
   override def subst[N <: ITerm, V <: ITerm](t: PlainPatternCondition, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = {
     t.subst(s, vo)
   }
 
-  //override def map(t: PlainPatternCondition, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm =
-  //  t.map(f,vo)
+   */
 
   override def tcName(t: Carrier): FastRefOption[TCName[Carrier]] = FastRefOption.empty
   override def tcVar(t: Carrier): FastRefOption[TCVarTerm[Carrier]] = FastRefOption.empty

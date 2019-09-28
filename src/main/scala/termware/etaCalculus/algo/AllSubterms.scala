@@ -2,7 +2,7 @@ package termware.etaCalculus.algo
 
 import java.util.IdentityHashMap
 
-import termware.etaCalculus.{IErrorTerm, IEtaTerm, IName, IPatternCondition, IPrimitive, IStructured, ITerm, IVarTerm, TermKindTransformer}
+import termware.etaCalculus.{IArrows, IErrorTerm, IEtaTerm, IName, IPatternCondition, IPrimitive, IStructured, ITerm, IVarTerm, TermKindTransformer}
 
 case class AllSubterms(t: ITerm) {
 
@@ -71,6 +71,13 @@ case class AllSubterms(t: ITerm) {
 
     override def onPatternCondition(patternCondition: IPatternCondition, vo: Map[IEtaTerm, IEtaTerm]): Boolean = p(patternCondition)
 
+    override def onArrows(arrow: IArrows, vo: Map[IEtaTerm, IEtaTerm]): Boolean = {
+      cachedApply(arrow) {
+        arrow.linear().forall { case (pattern, value) =>
+          pattern.kindTransform(this,vo) && value.kindTransform(this,vo)
+        }
+      }
+    }
 
   }
 
@@ -118,6 +125,15 @@ case class AllSubterms(t: ITerm) {
     }
 
     override def onPatternCondition(patternCondition: IPatternCondition, vo: Map[IEtaTerm, IEtaTerm]): Boolean = p(patternCondition)
+
+    override def onArrows(arrow: IArrows, vo: Map[IEtaTerm, IEtaTerm]): Boolean = {
+      cachedApply(onArrows(arrow,vo)){
+        arrow.linear().exists{ case (pattern,value) =>
+           pattern.kindTransform(this, vo) || value.kindTransform(this,vo)
+        }
+      }
+    }
+
   }
 
   def exists(p: ITerm => Boolean): Boolean = {

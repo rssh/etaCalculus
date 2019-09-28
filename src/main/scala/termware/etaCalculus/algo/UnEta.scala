@@ -43,4 +43,15 @@ object UnEta extends TermKindTransformer[ITerm] {
     patternCondition
   }
 
+  override def onArrows(arrows: IArrows, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
+    val nPairs = arrows.linear().map{
+      case (x,y) => (x.kindTransform(this,vo),y.kindTransform(this,vo))
+    }
+    IArrows.fromPairs(nPairs: _*) match {
+      case Right(x) => x
+      case Left(contratiction) => // impossible
+        throw new IllegalStateException("contradition during uneta:"+contratiction.message)
+    }
+  }
+
 }

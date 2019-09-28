@@ -19,6 +19,8 @@ class FastRefOption[+T <: AnyRef](val value:T) extends AnyVal {
     } else value
   }
 
+  def !(): T = value
+
   def orElse[S >:T <: AnyRef ](df: =>FastRefOption[S]): FastRefOption[S] = {
     if (isEmpty) {
       df

@@ -48,6 +48,7 @@ trait TCVarTerm[T] extends TCTerm[T]
     f(ivar(t)).kindTransform(VarOwnerChangeTransformer,vo)
   }
 
+  /*
   override def subst[N <: ITerm, V <: ITerm](t: T, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = {
     val v = ivar(t)
     v match {
@@ -58,10 +59,7 @@ trait TCVarTerm[T] extends TCTerm[T]
       case other => fixOwner(v,vo)
     }
   }
-
-  //override def map(t: T, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
-  //  f(ivar(t)).kindTransform(VarOwnerChangeTransformer,vo)
-  //}
+   */
 
   override def termEqNoRef(t: T, otherTerm: ITerm): Boolean = {
     otherTerm match {
@@ -82,6 +80,7 @@ trait TCVarTerm[T] extends TCTerm[T]
   override def tcStructured(t: T): FastRefOption[TCStructured[T]] = FastRefOption.empty
   override def tcEta(t: T): FastRefOption[TCEtaTerm[T]] = FastRefOption.empty
   override def tcError(t: T): FastRefOption[TCErrorTerm[T]] = FastRefOption.empty
+  override def tcArrows(t: T): FastRefOption[TCArrows[T]] = FastRefOption.empty
   override def tcPatternCondition(t: T): FastRefOption[TCPatternCondition[T]] = FastRefOption.empty
 
 }
@@ -105,6 +104,10 @@ trait IVarTerm extends ITerm {
   def ownerRef: IdentityRef[IEtaTerm] = tcVarTerm.ownerRef(carrier)
 
   def changeOwner(newOwner: IEtaTerm): IVarTerm = tcVarTerm.changeOwner(carrier,newOwner)
+
+  def resolve(): FastRefOption[ITerm] = {
+    owner.resolve(name)
+  }
 
   override def hasPatternsRec(trace: Map[IVarTerm, Boolean]): Boolean = {
     trace.get(this) match {

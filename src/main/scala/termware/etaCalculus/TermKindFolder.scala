@@ -22,6 +22,8 @@ trait TermKindFolder[S] {
 
   def onPatternCondition(patternCondition: IPatternCondition, state: S): S
 
+  def onArrows(arrow: IArrows, state: S): S
+
 }
 
 /**
@@ -43,6 +45,8 @@ class BaseTermKindFolder[S] extends TermKindFolder[S] {
   override def onError(error: IErrorTerm, state: S): S = state
 
   override def onPatternCondition(patternCondition: IPatternCondition, state: S): S = state
+
+  override def onArrows(arrow: IArrows, state: S): S = state
 
 }
 

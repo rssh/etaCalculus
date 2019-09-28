@@ -2,7 +2,7 @@ package termware.etaCalculus
 
 import termware.NameSubstitution
 import termware.etaCalculus.PlainEtaTerm.TraveseTransformers
-import termware.util.{FastRefOption, IdentityRef}
+import termware.util.{FastRefOption, IdentityRef, SimplePrint}
 
 import scala.reflect.ClassTag
 
@@ -20,6 +20,16 @@ trait TCEtaTerm[T] extends TCTerm[T] {
     = context(t).get(n)
 
   def baseTerm(t:T): ITerm
+
+
+  override def tcName(t: T): FastRefOption[TCName[T]] = FastRefOption.empty
+  override def tcVar(t: T): FastRefOption[TCVarTerm[T]] = FastRefOption.empty
+  override def tcPrimitive(t: T): FastRefOption[TCPrimitive[T]] = FastRefOption.empty
+  override def tcStructured(t: T): FastRefOption[TCStructured[T]] = FastRefOption.empty
+  override def tcEta(t: T): FastRefOption[TCEtaTerm[T]] = FastRefOption(this)
+  override def tcError(t: T): FastRefOption[TCErrorTerm[T]] = FastRefOption.empty
+  override def tcPatternCondition(t: T): FastRefOption[TCPatternCondition[T]] = FastRefOption.empty
+  override def tcArrows(t: T): FastRefOption[TCArrows[T]] = FastRefOption.empty
 
 }
 
@@ -189,6 +199,22 @@ trait VarOwnerChangeTransformer extends TermKindTransformer[ITerm] {
      }
   }
 
+  override def onArrows(arrow: IArrows, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
+    val pairs = arrow.linear()
+    val s0: IArrows = EmptyArrows
+    pairs.foldLeft(s0){ (s, e) =>
+      val l = e._1.kindTransform(this,vo)
+      val r = e._2.kindTransform(this, vo)
+      s.addPair(l,r) match {
+        case Right(v) => v
+        case Left(msg) =>
+          // TODO: flag to add ?
+          throw new IllegalStateException("Can't transform arrow:"+msg)
+      }
+    }
+  }
+
+
 }
 
 object VarOwnerChangeTransformer extends VarOwnerChangeTransformer
@@ -224,23 +250,11 @@ object TCPlainEtaTerm extends TCEtaTerm[PlainEtaTerm] {
     t.mapVars(f,vo)
   }
 
-  override def subst[N <: ITerm, V <: ITerm](t: PlainEtaTerm, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag:ClassTag[N]): ITerm = {
-    t.subst(s,vo)
-  }
-
-  //override def map(t: PlainEtaTerm, f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
-  //  t.map(f,vo)
-  //}
+ // override def subst[N <: ITerm, V <: ITerm](t: PlainEtaTerm, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag:ClassTag[N]): ITerm = {
+  //   t.subst(s,vo)
+ // }
 
   override def hasPatternsRec(t: PlainEtaTerm, trace: Map[IVarTerm,Boolean]): Boolean = t.hasPatternsRec(trace)
-
-  override def tcName(t: PlainEtaTerm): FastRefOption[TCName[PlainEtaTerm]] = FastRefOption.empty
-  override def tcVar(t: PlainEtaTerm): FastRefOption[TCVarTerm[PlainEtaTerm]] = FastRefOption.empty
-  override def tcPrimitive(t: PlainEtaTerm): FastRefOption[TCPrimitive[PlainEtaTerm]] = FastRefOption.empty
-  override def tcStructured(t: PlainEtaTerm): FastRefOption[TCStructured[PlainEtaTerm]] = FastRefOption.empty
-  override def tcEta(t: PlainEtaTerm): FastRefOption[TCEtaTerm[PlainEtaTerm]] = FastRefOption(this)
-  override def tcError(t: PlainEtaTerm): FastRefOption[TCErrorTerm[PlainEtaTerm]] = FastRefOption.empty
-  override def tcPatternCondition(t: PlainEtaTerm): FastRefOption[TCPatternCondition[PlainEtaTerm]] = FastRefOption.empty
 
   override def termEqNoRef(t: PlainEtaTerm, otherTerm: ITerm): Boolean = t.termEqNoRef(otherTerm)
 
@@ -300,21 +314,13 @@ class PlainEtaTerm(
     ))
   }
 
-  override def subst[N <: ITerm, V <: ITerm](s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = {
-    maybeSame(new PlainEtaTerm(
-      TraveseTransformers(thisEtaTerm,(t,vo)=>t.subst(s,vo),vo),
-      context,
-      baseTerm
-    ))
-  }
-
-  //override def map(f: ITerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
-  //  maybeSame(new PlainEtaTerm(
-  //    TraveseTransformers(thisEtaTerm,(t,vo)=>t.map(f,vo),vo),
-  //    context,
-  //    baseTerm
-  //  ))
-  //}
+ // override def subst[N <: ITerm, V <: ITerm](s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = {
+ //   maybeSame(new PlainEtaTerm(
+ //     TraveseTransformers(thisEtaTerm,(t,vo)=>t.subst(s,vo),vo),
+ //     context,
+ //     baseTerm
+ //   ))
+ // }
 
   override def hasPatternsRec(trace: Map[IVarTerm,Boolean]): Boolean = baseTerm.hasPatternsRec(trace)
 
@@ -325,6 +331,15 @@ class PlainEtaTerm(
       this
     } else other
   }
+
+  override def leftUnifyInSubst(s: VarSubstitution, o: ITerm): UnificationResult = {
+    Console.print("!!!leftUnifyInSubst, left="+SimplePrint(s))
+    Console.print("!!!right="+SimplePrint(o))
+    val r = baseTerm.leftUnifyInSubst(s,o)
+    Console.print("!!!result="+r)
+    r
+  }
+
 
 }
 

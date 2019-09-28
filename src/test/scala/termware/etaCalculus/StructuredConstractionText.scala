@@ -31,5 +31,4 @@ class StructuredConstractionText extends FunSuite {
     assert(r.isFailure())
   }
 
-
 }
