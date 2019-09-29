@@ -1,6 +1,6 @@
 package termware.etaCalculus.matchingNet
 
-import termware.etaCalculus.{IArrows, IErrorTerm, IEtaTerm, IName, IPatternCondition, IPrimitive, IStructured, ITerm, IVarTerm, VarSubstitution}
+import termware.etaCalculus.{ArrowsMergingPolicy, IArrows, IErrorTerm, IEtaTerm, IName, IPatternCondition, IPrimitive, IStructured, ITerm, IVarTerm, VarSubstitution}
 import termware.util.FastRefOption
 
 import scala.annotation.tailrec
@@ -53,24 +53,24 @@ case class ArityNameIndexedElement(
     }
   }
 
-  override def add(index: ITerm, value: ITerm): Either[MNContradiction,MatchingNetElement] = {
+  override def add(index: ITerm, value: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[MNContradiction,MatchingNetElement] = {
     index match {
-      case IStructured(si) => addStructured(si,value)
-      case IArrows(ai) => addArrows(ai,value)
-      case IPatternCondition(pi) => addAnyNameAnyArity(pi, value)
-      case IName(n) => addName(n,value)
-      case IPrimitive(p) => addPrimitive(p,value)
-      case IEtaTerm(eta) => addEta(eta,value)
-      case IVarTerm(v) => addVar(v,value)
+      case IStructured(si) => addStructured(si,value, mergingPolicy)
+      case IArrows(ai) => addArrows(ai,value, mergingPolicy)
+      case IPatternCondition(pi) => addAnyNameAnyArity(pi, value, mergingPolicy)
+      case IName(n) => addName(n,value, mergingPolicy)
+      case IPrimitive(p) => addPrimitive(p,value, mergingPolicy)
+      case IEtaTerm(eta) => addEta(eta,value, mergingPolicy)
+      case IVarTerm(v) => addVar(v,value, mergingPolicy)
       case IErrorTerm(e) => Left(MNContradiction(e,this,"IError can't be added"))
     }
   }
 
 
-  private def addStructured(si: IStructured, term: ITerm): Either[MNContradiction,MatchingNetElement] = {
+  private def addStructured(si: IStructured, term: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[MNContradiction,MatchingNetElement] = {
     @tailrec
     def addForward(i: Int, c: MatchingNetElement): Either[MNContradiction,MatchingNetElement] = {
-      addWithArity(i,si,term) match {
+      addWithArity(i,si,term, mergingPolicy) match {
         case Left(e) => Left(e)
         case Right(r) =>
           if (i < si.arity()) {
@@ -94,10 +94,10 @@ case class ArityNameIndexedElement(
   }
 
 
-  private def addWithArity(i: Int, index: IStructured, value: ITerm):
+  private def addWithArity(i: Int, index: IStructured, value: ITerm, mergingPolicy: ArrowsMergingPolicy):
                 Either[MNContradiction,ArityNameIndexedElement] = {
     val n = byArity.get(i) match {
-      case Some(n) => n.addSameArity(index,value)
+      case Some(n) => n.addSameArity(index,value, mergingPolicy)
       case None => Right(NameSameArityElement(
         Map(index.name -> createArgChecker(0,index,value)),
         onFail
@@ -106,47 +106,47 @@ case class ArityNameIndexedElement(
     n.map(x => copy(byArity = byArity.updated(i,x)))
   }
 
-  private def addArrows(arrowsIndex: IArrows, value: ITerm):
+  private def addArrows(arrowsIndex: IArrows, value: ITerm, mergingPolicy: ArrowsMergingPolicy):
                                  Either[MNContradiction,MatchingNetElement]  = {
-    arrows.add(arrowsIndex,value).map(x => copy(arrows = x))
+    arrows.add(arrowsIndex,value, mergingPolicy).map(x => copy(arrows = x))
   }
 
-  private def addName(name: IName, term: ITerm): Either[MNContradiction,MatchingNetElement] = {
+  private def addName(name: IName, term: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[MNContradiction,MatchingNetElement] = {
     namesOnly.get(name) match {
-      case Some(found) => found.add(name,term)
+      case Some(found) => found.add(name,term,mergingPolicy)
       case None => val nNames = namesOnly.updated(name,FoundElement(term))
         Right(copy(namesOnly = nNames))
     }
   }
 
-  private def addPrimitive(primitive: IPrimitive, term: ITerm): Either[MNContradiction,MatchingNetElement] = {
+  private def addPrimitive(primitive: IPrimitive, term: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[MNContradiction,MatchingNetElement] = {
     primitives.get(primitive) match {
-      case Some(found) => found.add(primitive,term)
+      case Some(found) => found.add(primitive,term,mergingPolicy)
       case None => val nPrimitives = primitives.updated(primitive,FoundElement(term))
         Right(copy(primitives = nPrimitives))
     }
   }
 
-  private def addAnyNameAnyArity(index: IPatternCondition, value: ITerm):
+  private def addAnyNameAnyArity(index: IPatternCondition, value: ITerm, mergingPolicy: ArrowsMergingPolicy):
   Either[MNContradiction, MatchingNetElement] = {
-    anyNameAnyArity.addPatternCondition(index,value).map( x =>
+    anyNameAnyArity.addPatternCondition(index,value, mergingPolicy).map( x =>
       copy(anyNameAnyArity = x)
     )
   }
 
-  private def addEta(index: IEtaTerm, value: ITerm):
+  private def addEta(index: IEtaTerm, value: ITerm, mergingPolicy: ArrowsMergingPolicy):
   Either[MNContradiction,MatchingNetElement] = {
     // now - leave as it, later will retrieve top context.
-    add(index.baseTerm(),value)
+    add(index.baseTerm(),value, mergingPolicy)
   }
 
-  private def addVar(index: IVarTerm, term1: ITerm):
+  private def addVar(index: IVarTerm, term1: ITerm, mergingPolicy: ArrowsMergingPolicy):
   Either[MNContradiction,MatchingNetElement] = {
     index.owner.resolve(index.name) match {
       case FastRefOption.Empty() => Left(MNContradiction(index, this,"variable not exists"))
       case FastRefOption.Some(p) =>
         // TODO:  support letrec.
-        add(p,term1)
+        add(p,term1, mergingPolicy)
     }
   }
 

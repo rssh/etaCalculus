@@ -205,7 +205,7 @@ trait VarOwnerChangeTransformer extends TermKindTransformer[ITerm] {
     pairs.foldLeft(s0){ (s, e) =>
       val l = e._1.kindTransform(this,vo)
       val r = e._2.kindTransform(this, vo)
-      s.addPair(l,r) match {
+      s.addPair(l,r,ArrowsMergingPolicy.OldFirst) match {
         case Right(v) => v
         case Left(msg) =>
           // TODO: flag to add ?

@@ -1,10 +1,7 @@
 package termware.etaCalculus.matchingNet
 
-import termware.etaCalculus.{Arrow, ArrowPatternCheckSuccess, EmptyArrows, IArrows, IErrorTerm, IEtaTerm, IName, IPatternCondition, IPrimitive, IStructured, ITerm, IVarTerm, UnificationFailure, UnificationSuccess, VarSubstitution}
-import termware.util.FastRefOption
+import termware.etaCalculus.{ArrowsMergingPolicy, ITerm, VarSubstitution}
 
-import scala.annotation.tailrec
-import scala.collection.immutable.IntMap
 
 case class MatchingNetPatternCheckResult(
     substitution: VarSubstitution,
@@ -31,7 +28,7 @@ trait MatchingNetElement {
 
   def checkPattern(s: VarSubstitution, pattern: ITerm): MatchingNetPatternCheckResult
 
-  def add(index:ITerm, value: ITerm): Either[MNContradiction,MatchingNetElement]
+  def add(index:ITerm, value: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[MNContradiction,MatchingNetElement]
 
   def isFinal(): Boolean
 
@@ -47,13 +44,13 @@ case class FoundElement(value: ITerm) extends FinalElement {
 
   override def checkPattern(s: VarSubstitution, pattern: ITerm): MatchingNetPatternCheckResult = ???
 
-  override def add(index: ITerm, value: ITerm): Either[MNContradiction, MatchingNetElement] = Left(MNContradiction(index,this,"attempt to "))
+  override def add(index: ITerm, value: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[MNContradiction, MatchingNetElement] = Left(MNContradiction(index,this,"attempt to "))
 
 }
 
 case object NotFoundElement extends FinalElement {
 
-  override def add(index: ITerm, value: ITerm): Either[MNContradiction,MatchingNetElement] = {
+  override def add(index: ITerm, value: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[MNContradiction,MatchingNetElement] = {
      Right(CheckTermMatchingElement(index,FoundElement(value),this))
   }
 
@@ -68,6 +65,6 @@ case class ErrorMatchingNetElement(msg: String, pattern: ITerm) extends FinalEle
   override def checkPattern(s: VarSubstitution, pattern: ITerm): MatchingNetPatternCheckResult =
     MatchingNetPatternCheckResult.failure(s,this)
 
-  override def add(index: ITerm, value: ITerm): Either[MNContradiction, MatchingNetElement] = Left(MNContradiction(index,this,"Can't add to error term"))
+  override def add(index: ITerm, value: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[MNContradiction, MatchingNetElement] = Left(MNContradiction(index,this,"Can't add to error term"))
 
 }

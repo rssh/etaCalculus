@@ -42,4 +42,6 @@ class ArrowApplyTest extends FunSuite {
     assert(r.asStructured().get() == st2)
   }
 
+
+
 }

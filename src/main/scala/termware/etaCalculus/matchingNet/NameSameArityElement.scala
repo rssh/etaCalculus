@@ -1,6 +1,6 @@
 package termware.etaCalculus.matchingNet
 
-import termware.etaCalculus.{IName, ITerm, VarSubstitution}
+import termware.etaCalculus.{ArrowsMergingPolicy, IName, ITerm, VarSubstitution}
 
 class NameSameArityElement(
     byName: Map[IName,MatchingNetElement],
@@ -14,9 +14,9 @@ class NameSameArityElement(
       }
     }
 
-  override def add(index: ITerm, value: ITerm): Either[MNContradiction,MatchingNetElement] = ???
+  override def add(index: ITerm, value: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[MNContradiction,MatchingNetElement] = ???
 
-  def addSameArity(index: ITerm, value: ITerm): Either[MNContradiction,NameSameArityElement] = ???
+  def addSameArity(index: ITerm, value: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[MNContradiction,NameSameArityElement] = ???
 
   override def isFinal(): Boolean = ???
 

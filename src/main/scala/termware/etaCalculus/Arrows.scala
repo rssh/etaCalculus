@@ -3,6 +3,12 @@ package termware.etaCalculus
 import termware.etaCalculus.matchingNet.MNContradiction
 import termware.util.FastRefOption
 
+sealed trait ArrowsMergingPolicy
+object ArrowsMergingPolicy {
+  case object NewFirst extends ArrowsMergingPolicy
+  case object OldFirst extends ArrowsMergingPolicy
+  case object Contradiction extends ArrowsMergingPolicy
+}
 
 trait TCArrows[T] extends TCTerm[T]
 {
@@ -16,7 +22,7 @@ trait TCArrows[T] extends TCTerm[T]
 
   def linear(t:T): Seq[(ITerm,ITerm)]
 
-  def addPair(t:T, left: ITerm, right:ITerm): Either[Contradiction,IArrows]
+  def addPair(t:T, left: ITerm, right:ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction,IArrows]
 
   def isEmpty(t:T): Boolean
 
@@ -39,6 +45,8 @@ trait IArrows extends ITerm
 {
   type Carrier
 
+  override def tcTerm: TCTerm[Carrier] = tcArrows
+
   def tcArrows: TCArrows[Carrier]
 
   def carrier: Carrier
@@ -57,7 +65,7 @@ trait IArrows extends ITerm
 
   def linear(): Seq[(ITerm,ITerm)]
 
-  def addPair(left:ITerm, right: ITerm): Either[Contradiction,IArrows]
+  def addPair(left:ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction,IArrows]
 
 
   override def kindFold[S](s0: S)(folder: TermKindFolder[S]): S = {
@@ -81,7 +89,7 @@ object IArrows {
   def fromPairs(pairs:(ITerm,ITerm)*): Either[Contradiction,IArrows] = {
     val s0: Either[Contradiction,IArrows] = Right(EmptyArrows)
     pairs.foldLeft(s0){ (s,e) =>
-      s.flatMap(sx => sx.addPair(e._1,e._2))
+      s.flatMap(sx => sx.addPair(e._1,e._2,ArrowsMergingPolicy.Contradiction))
     }
   }
 
@@ -105,8 +113,8 @@ case class CArrows[T](t:T, tc: TCArrows[T]) extends IArrows {
 
   override def linear(): Seq[(ITerm, ITerm)] = tc.linear(t)
 
-  override def addPair(left: ITerm, right: ITerm): Either[Contradiction, IArrows] =
-    tc.addPair(t,left,right)
+  override def addPair(left: ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction, IArrows] =
+    tc.addPair(t,left,right,mergingPolicy)
 
   override def termApplyChecked(arg: ITerm, u: ArrowPatternCheckSuccess): ITerm = {
     tc.termApplyChecked(t,arg,u)
@@ -135,7 +143,7 @@ object TCArrow extends TCArrows[Arrow] {
 
   override def linear(t: Arrow): Seq[(ITerm, ITerm)] = ???
 
-  override def addPair(t: Arrow, left: ITerm, right: ITerm): Either[Contradiction, IArrows] = ???
+  override def addPair(t: Arrow, left: ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction, IArrows] = ???
 
   override def isEmpty(t: Arrow): Boolean = ???
 
@@ -211,7 +219,7 @@ case class Arrow(left:ITerm, right:ITerm, otherwise: IArrows) extends IArrows {
     (left,right) +: otherwise.linear()
   }
 
-  override def addPair(left: ITerm, right: ITerm): Either[Contradiction, IArrows] = ???
+  override def addPair(left: ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction, IArrows] = ???
 
   override def hasPatternsRec(trace: Map[IVarTerm, Boolean]): Boolean = {
     (    left.hasPatternsRec(trace)
@@ -233,7 +241,7 @@ object TCEmptyArrows extends TCArrows[EmptyArrows.type] {
 
   override def linear(t: EmptyArrows.type): Seq[(ITerm, ITerm)] = Seq()
 
-  override def addPair(t: EmptyArrows.type, left: ITerm, right: ITerm): Either[Contradiction, IArrows] = Right(Arrow(left,right,t))
+  override def addPair(t: EmptyArrows.type, left: ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction, IArrows] = Right(Arrow(left,right,t))
 
   override def leftUnifyInSubst(t: EmptyArrows.type, s: VarSubstitution, o: ITerm): UnificationResult = {
     o match {
@@ -277,7 +285,7 @@ object EmptyArrows extends IArrows {
 
   override def linear(): Seq[(ITerm, ITerm)] = Seq.empty
 
-  override def addPair(left: ITerm, right: ITerm): Either[Contradiction, IArrows] =
+  override def addPair(left: ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction, IArrows] =
     Right(Arrow(left,right,this))
 
 }

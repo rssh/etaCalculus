@@ -1,6 +1,6 @@
 package termware.etaCalculus.matchingNet
 
-import termware.etaCalculus.{Arrow, ITerm, UnificationFailure, UnificationSuccess, VarSubstitution}
+import termware.etaCalculus.{Arrow, ArrowsMergingPolicy, ITerm, UnificationFailure, UnificationSuccess, VarSubstitution}
 
 class ArrowMatchingElement(arrow: Arrow, onFail: MatchingNetElement = NotFoundElement) extends MatchingNetElement {
 
@@ -18,7 +18,7 @@ class ArrowMatchingElement(arrow: Arrow, onFail: MatchingNetElement = NotFoundEl
     }
   }
 
-  override def add(index: ITerm, value: ITerm): Either[MNContradiction,MatchingNetElement] = ???
+  override def add(index: ITerm, value: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[MNContradiction,MatchingNetElement] = ???
 
   override def isFinal(): Boolean = ???
 }
