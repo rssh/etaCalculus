@@ -141,7 +141,7 @@ object TCArrow extends TCArrows[Arrow] {
     t.termApplyChecked(arg, s)
   }
 
-  override def linear(t: Arrow): Seq[(ITerm, ITerm)] = ???
+  override def linear(t: Arrow): Seq[(ITerm, ITerm)] = t.linear()
 
   override def addPair(t: Arrow, left: ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction, IArrows] = ???
 
