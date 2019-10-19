@@ -1,6 +1,6 @@
 package termware.etaCalculus.matchingNet
 
-import termware.etaCalculus.{ArrowPatternCheckFailure, ArrowPatternCheckResult, ArrowPatternCheckSuccess, ArrowsMergingPolicy, Contradiction, IArrows, IEtaTerm, ITerm, IVarTerm, TCArrows, UnificationResult, VarSubstitution}
+import termware.etaCalculus.{Arrow, ArrowPatternCheckFailure, ArrowPatternCheckResult, ArrowPatternCheckSuccess, ArrowsMergingPolicy, Contradiction, EmptyArrows, IArrows, IEtaTerm, ITerm, IVarTerm, TCArrows, UnificationFailure, UnificationResult, UnificationSuccess, VarSubstitution}
 
 class MNArrows(element: MatchingNetElement) extends IArrows {
 
@@ -26,10 +26,12 @@ class MNArrows(element: MatchingNetElement) extends IArrows {
     u.selectedRight.substVars(u.substitution,Map.empty)
   }
 
-  override def leftUnifyInSubst(s: VarSubstitution, o: ITerm): UnificationResult = ???
+  override def leftUnifyInSubst(s: VarSubstitution, o: ITerm): UnificationResult = {
+    ???
+  }
 
 
-  override def isEmpty(): Boolean = ???
+  override def isEmpty(): Boolean = { element == NotFoundElement }
 
   override def linear(): Seq[(ITerm, ITerm)] = ???
 

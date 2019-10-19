@@ -156,7 +156,7 @@ class StdLogicInterpretation(
   }
 
   def failure(msg:String,frs: ITerm, s: VarSubstitution): UnificationFailure = {
-    UnificationFailure(msg,frs,BoolPrimitive.TRUE,None,s)
+    UnificationFailure(msg,frs,BoolPrimitive.TRUE,s)
   }
 
 }

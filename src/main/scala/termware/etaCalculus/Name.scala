@@ -53,10 +53,10 @@ trait TCName[T] extends TCTerm[T]
               if (compare(t,otherName) == 0) {
                 UnificationSuccess(s)
               } else {
-                UnificationFailure("name mismatch",iname(t),otherName,None,s)
+                UnificationFailure("name mismatch",iname(t),otherName,s)
               }
        case FastRefOption.Empty() =>
-                UnificationFailure("not name in right part",iname(t),o,None,s)
+                UnificationFailure("not name in right part",iname(t),o,s)
      }
   }
 

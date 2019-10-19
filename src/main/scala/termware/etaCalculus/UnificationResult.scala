@@ -21,8 +21,8 @@ case class UnificationFailure(
     msg: String,
     left:ITerm,
     right: ITerm,
-    prevFailure:Option[UnificationFailure],
-    substitution: VarSubstitution) extends UnificationResult {
+    substitution: VarSubstitution,
+    prevFailure: Option[UnificationFailure] = None) extends UnificationResult {
   override def isFailure(): Boolean = true
   override def isSuccess(): Boolean = false
 
@@ -34,7 +34,7 @@ object UnificationFailure {
   implicit val vartermError = TCUnificationFailureError
 
   def fromMessage(msg: String, frs: ITerm, snd: ITerm, substitution: VarSubstitution): UnificationFailure = {
-    UnificationFailure(msg,frs,snd,None,substitution)
+    UnificationFailure(msg,frs,snd,substitution)
   }
 
 }

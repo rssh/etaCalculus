@@ -16,7 +16,7 @@ trait TCErrorTerm[T] extends TCTerm[T] {
   override def hasPatternsRec(t: T, trace: Map[IVarTerm,Boolean]): Boolean = false
 
   override def leftUnifyInSubst(t: T, s: VarSubstitution, o: ITerm): UnificationResult = {
-    UnificationFailure("attempt to unify error",iterm(t),o,None,s)
+    UnificationFailure("attempt to unify error",iterm(t),o,s)
   }
 
 

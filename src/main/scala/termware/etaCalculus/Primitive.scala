@@ -33,13 +33,13 @@ trait TCPrimitive[T] extends TCTerm[T]
            if (valueEqual(t,otherPrimitive.carrier.asInstanceOf[T])) {
              UnificationSuccess(s)
            } else {
-             UnificationFailure(s"value mismatch",iterm(t),o,None,s)
+             UnificationFailure(s"value mismatch",iterm(t),o,s)
            }
          } else {
-           UnificationFailure(s"other primitive index",iterm(t),o,None,s)
+           UnificationFailure(s"other primitive index",iterm(t),o,s)
          }
        case other =>
-         UnificationFailure(s"unification value with non-value",iterm(t),o,None,s)
+         UnificationFailure(s"unification value with non-value",iterm(t),o,s)
      }
   }
 

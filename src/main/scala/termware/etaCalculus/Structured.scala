@@ -292,7 +292,7 @@ object TCPlainStructured extends TCStructured[PlainStructured]
           case UnificationSuccess(s) =>
             unifySubterms(t,s,otherStructured,0)
           case f: UnificationFailure =>
-            UnificationFailure("name mismath",iterm(t),o,Some(f),s)
+            UnificationFailure("name mismath",iterm(t),o,s,Some(f))
         }
       case IEtaTerm(oEta) =>
         leftUnifyInSubst(t,s,oEta.baseTerm())
@@ -304,7 +304,7 @@ object TCPlainStructured extends TCStructured[PlainStructured]
         //leftUnifyInSubst(t,s,EtaEliminate(oEta.baseTerm()))
         //UnificationFailure("term kind mismatch",iterm(t),o,None,s)
       case _ =>
-        UnificationFailure("term kind mismatch",iterm(t),o,None,s)
+        UnificationFailure("term kind mismatch",iterm(t),o,s)
     }
   }
 
@@ -322,11 +322,11 @@ object TCPlainStructured extends TCStructured[PlainStructured]
               left.leftUnifyInSubst(s,right) match {
                 case UnificationSuccess(s1) => unifySubterms(carrier,s1,structured,i+1)
                 case failure: UnificationFailure =>
-                  UnificationFailure(s"mismatched subterm ${leftMeta.name}",istructured(carrier),structured,Some(failure),s)
+                  UnificationFailure(s"mismatched subterm ${leftMeta.name}",istructured(carrier),structured,s,Some(failure))
               }
             case FastRefOption.Empty() =>
               // No name and no default value
-              UnificationFailure(s"Can't find component with name ${leftMeta.name}",istructured(carrier),structured,None,s)
+              UnificationFailure(s"Can't find component with name ${leftMeta.name}",istructured(carrier),structured,s)
           }
       }
     }

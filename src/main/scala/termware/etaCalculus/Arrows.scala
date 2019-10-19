@@ -1,12 +1,14 @@
 package termware.etaCalculus
 
-import termware.etaCalculus.matchingNet.MNContradiction
+import termware.etaCalculus.impl.ImplementationConfig
+import termware.etaCalculus.matchingNet.{ArrowMatchingElement, MNArrows, MNContradiction}
 import termware.util.FastRefOption
 
 sealed trait ArrowsMergingPolicy
 object ArrowsMergingPolicy {
   case object NewFirst extends ArrowsMergingPolicy
   case object OldFirst extends ArrowsMergingPolicy
+  case object MoreSpecificFirst extends ArrowsMergingPolicy
   case object Contradiction extends ArrowsMergingPolicy
 }
 
@@ -143,17 +145,27 @@ object TCArrow extends TCArrows[Arrow] {
 
   override def linear(t: Arrow): Seq[(ITerm, ITerm)] = t.linear()
 
-  override def addPair(t: Arrow, left: ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction, IArrows] = ???
+  override def addPair(t: Arrow, left: ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction, IArrows] = {
+    t.addPair(left, right, mergingPolicy)
+  }
 
   override def isEmpty(t: Arrow): Boolean = ???
 
-  override def leftUnifyInSubst(t: Arrow, s: VarSubstitution, o: ITerm): UnificationResult = ???
+  override def leftUnifyInSubst(t: Arrow, s: VarSubstitution, o: ITerm): UnificationResult = t.leftUnifyInSubst(s,o)
 
-  override def hasPatternsRec(t: Arrow, trace: Map[IVarTerm, Boolean]): Boolean = ???
+  override def hasPatternsRec(t: Arrow, trace: Map[IVarTerm, Boolean]): Boolean =
+    t.hasPatternsRec(trace)
+
 }
 
-
-case class Arrow(left:ITerm, right:ITerm, otherwise: IArrows) extends IArrows {
+/**
+  * left -> right or otherwise
+   * @param left - left part of arros
+  * @param right - right part of arrow
+  * @param otherwise - next candodate to check, if mathing with left failed.
+  *                   should be variable of Arrow, otherwise arrow is ill-formed
+  */
+case class Arrow(left:ITerm, right:ITerm, otherwise: ITerm) extends IArrows {
 
   thisArrow =>
 
@@ -219,7 +231,56 @@ case class Arrow(left:ITerm, right:ITerm, otherwise: IArrows) extends IArrows {
     (left,right) +: otherwise.linear()
   }
 
-  override def addPair(left: ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction, IArrows] = ???
+  override def addPair(left: ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction, IArrows] = {
+    ImplementationConfig.arrowsAddPolicy match {
+      case ImplementationConfig.ArrrowsAddPolicy.ArrowsSequence =>
+        addArrowSequence(left,right,mergingPolicy)
+      case ImplementationConfig.ArrrowsAddPolicy.MatchingNet =>
+        val mn = new ArrowMatchingElement(this)
+        mn.add(left,right,mergingPolicy).map(new MNArrows(_))
+    }
+  }
+
+  def addArrowSequence(left: ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction,IArrows] = {
+
+    mergingPolicy match {
+      case ArrowsMergingPolicy.Contradiction =>
+        left.leftUnifyInSubst(VarSubstitution.empty(),this.left) match {
+          case UnificationSuccess(s) =>
+            Left(MNContradiction(left,new ArrowMatchingElement(this),s"same with ${s}"))
+          case f: UnificationFailure =>
+            Right(Arrow(left,right,this))
+        }
+      case ArrowsMergingPolicy.MoreSpecificFirst =>
+        left.leftUnifyInSubst(VarSubstitution.empty(),this.left) match {
+          case UnificationSuccess(s) =>
+            otherwise.addPair(left,right,mergingPolicy).map{ next =>
+              Arrow(this.left,this.right,next)
+            }
+          case f:UnificationFailure =>
+            Right(Arrow(left,right,this))
+        }
+      case ArrowsMergingPolicy.OldFirst =>
+        otherwise.addPair(left,right,mergingPolicy).map{ next =>
+          Arrow(this.left,this.right,next)
+        }
+      case ArrowsMergingPolicy.NewFirst =>
+        Right(Arrow(left,right,this))
+    }
+
+
+  }
+
+  private def resolveIArrow(c:ITerm):Either[IVarTerm, IArrows] = {
+    c match {
+        case IEtaTerm(eta) => resolveIArrow(eta.baseTerm())
+        case IVarTerm(v) => v.resolve() match {
+          case FastRefOption.Empty() =>
+            throw new IllegalStateException()
+        }
+    }
+  }
+
 
   override def hasPatternsRec(trace: Map[IVarTerm, Boolean]): Boolean = {
     (    left.hasPatternsRec(trace)
@@ -248,9 +309,9 @@ object TCEmptyArrows extends TCArrows[EmptyArrows.type] {
       case IArrows(oa) => if (oa.isEmpty()) {
                              UnificationSuccess(s)
                           } else {
-                             UnificationFailure("!empty",EmptyArrows,o,None,s)
+                             UnificationFailure("!empty",EmptyArrows,o,s)
                           }
-      case _ => UnificationFailure("!arrow",EmptyArrows,o,None,s)
+      case _ => UnificationFailure("!arrow",EmptyArrows,o,s)
     }
   }
 

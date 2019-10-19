@@ -22,7 +22,6 @@ object MatchingNetPatternCheckResult {
 
 }
 
-case class MNContradiction(index:ITerm, target: MatchingNetElement, msg:String)
 
 trait MatchingNetElement {
 
