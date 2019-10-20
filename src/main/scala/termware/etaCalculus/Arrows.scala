@@ -228,7 +228,11 @@ case class Arrow(left:ITerm, right:ITerm, otherwise: ITerm) extends IArrows {
   override def isEmpty(): Boolean = false
 
   override def linear(): Seq[(ITerm, ITerm)] = {
-    (left,right) +: otherwise.linear()
+    resolveIArrow(otherwise) match {
+      case Left(v) => Seq((left,right))
+      case Right(otherArrow) =>
+        (left,right) +: otherArrow.linear()
+    }
   }
 
   override def addPair(left: ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction, IArrows] = {
@@ -254,30 +258,47 @@ case class Arrow(left:ITerm, right:ITerm, otherwise: ITerm) extends IArrows {
       case ArrowsMergingPolicy.MoreSpecificFirst =>
         left.leftUnifyInSubst(VarSubstitution.empty(),this.left) match {
           case UnificationSuccess(s) =>
-            otherwise.addPair(left,right,mergingPolicy).map{ next =>
-              Arrow(this.left,this.right,next)
-            }
+            addToOtherwise(left,right,mergingPolicy)
           case f:UnificationFailure =>
             Right(Arrow(left,right,this))
         }
       case ArrowsMergingPolicy.OldFirst =>
-        otherwise.addPair(left,right,mergingPolicy).map{ next =>
-          Arrow(this.left,this.right,next)
-        }
+        addToOtherwise(left,right,mergingPolicy)
       case ArrowsMergingPolicy.NewFirst =>
         Right(Arrow(left,right,this))
     }
 
-
   }
+
+
+  private def addToOtherwise(l: ITerm, r: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction,IArrows] = {
+    resolveIArrow(otherwise) match {
+      case Right(arrows) => arrows.addPair(l,r,mergingPolicy) map { next =>
+        Arrow(this.left, this.right, next )
+      }
+      case Left(v) => Right(Arrow(this.left,this.right,Arrow(left,right,v)))
+    }
+  }
+
+  def resolveOtherwise(): Either[IVarTerm,IArrows] =
+    resolveIArrow(otherwise)
 
   private def resolveIArrow(c:ITerm):Either[IVarTerm, IArrows] = {
     c match {
         case IEtaTerm(eta) => resolveIArrow(eta.baseTerm())
+        case IArrows(a) => Right(a)
         case IVarTerm(v) => v.resolve() match {
           case FastRefOption.Empty() =>
-            throw new IllegalStateException()
+            throw new IllegalStateException(s"Unresolved var: ${v}")
+          case FastRefOption.Some(vl) =>
+            vl match {
+              case IVarTerm(vl1) => resolveIArrow(vl1)  // impossible
+              case IArrows(a) => Right(a)
+              case IPatternCondition(p) => Left(v)
+              case _ => throw new IllegalStateException(s"Incorresct arrow structure  ${v} shoulbt pattern or arrow")
+            }
         }
+        case _ => throw new IllegalStateException("Invalid Arrow: otjerwise should be var or arrow")
     }
   }
 

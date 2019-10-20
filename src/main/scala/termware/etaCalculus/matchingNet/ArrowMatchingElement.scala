@@ -8,11 +8,10 @@ class ArrowMatchingElement(arrow: Arrow, onFail: MatchingNetElement = NotFoundEl
     arrow.left.leftUnifyInSubst(s,pattern) match {
       case UnificationSuccess(s1) =>
         MatchingNetPatternCheckResult(s1,FoundElement(arrow.right),true)
-      case UnificationFailure(msg, left, right, prevFailure, substitution) =>
-        val next = if (arrow.otherwise.isEmpty()) {
-          onFail
-        } else {
-          new ArrowsMatchingElement(arrow.otherwise, onFail)
+      case UnificationFailure(msg, left, right, substitution, prevFailure) =>
+        val next = arrow.resolveOtherwise() match {
+          case Left(v) => onFail
+          case Right(v) => new ArrowsMatchingElement(v,onFail)
         }
         MatchingNetPatternCheckResult.failure(s,next)
     }

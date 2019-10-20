@@ -40,12 +40,12 @@ class SubstVarTest extends FunSuite {
 
   }
 
-  test("substitute vars in simple arrow term (v->v)") {
+  test("substitute vars in simple arrow term \\eta x=>*, y->1:(x->y)") {
       val x = StringName("x")
       val y = StringName("y")
       val nc = NameSubstitution(
           x -> IPatternCondition.all,
-          y -> 1
+          y -> 1,
       )
       val arrow = Arrow(x,y,EmptyArrows)
       val ea = IEtaTerm.create(nc,arrow)
