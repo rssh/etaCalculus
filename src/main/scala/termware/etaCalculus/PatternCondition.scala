@@ -1,9 +1,7 @@
 package termware.etaCalculus
-
-
+import termware.etaCalculus.algo.Contains
 import termware.util.FastRefOption
 
-import scala.reflect.{ClassManifestFactory, ClassTag}
 
 trait TCPatternCondition[T] extends TCTerm[T] {
 
@@ -11,8 +9,9 @@ trait TCPatternCondition[T] extends TCTerm[T] {
 
   def expression(t:T): ITerm
 
-  def substExpression(t:T, nExpr: ITerm): IPatternCondition
+  def thisVar(t:T): FastRefOption[IVarTerm]
 
+  def substExpression(t:T, nExpr: ITerm, nThisVar: FastRefOption[IVarTerm]): IPatternCondition
 
   override def hasPatternsRec(t: T,trace: Map[IVarTerm, Boolean]): Boolean = true
 
@@ -24,6 +23,7 @@ trait TCPatternCondition[T] extends TCTerm[T] {
   override def tcPrimitive(t: T): FastRefOption[TCPrimitive[T]] = FastRefOption.empty
   override def tcError(t: T): FastRefOption[TCErrorTerm[T]] = FastRefOption.empty
   override def tcArrows(t: T): FastRefOption[TCArrows[T]] =  FastRefOption.empty
+  override def tcStructured(t: T): FastRefOption[TCStructured[T]] = FastRefOption.empty
 
 
   override def termEqNoRef(t: T, otherTerm: ITerm): Boolean = {
@@ -45,8 +45,11 @@ trait IPatternCondition extends ITerm {
   def expression: ITerm =
     tcGuarded.expression(carrier)
 
-  def substExpression(nExpr: ITerm): IPatternCondition =
-    tcGuarded.substExpression(carrier, nExpr)
+  def thisVar: FastRefOption[IVarTerm] =
+    tcGuarded.thisVar(carrier)
+
+  def substExpression(nExpr: ITerm, nThisVar: FastRefOption[IVarTerm]): IPatternCondition =
+    tcGuarded.substExpression(carrier, nExpr, nThisVar)
 
   override def kindTransform[B](matcher: TermKindTransformer[B], vo: Map[IEtaTerm, IEtaTerm]): B = {
      matcher.onPatternCondition(this,vo)
@@ -69,8 +72,14 @@ object IPatternCondition
     }
   }
 
-  val all: IPatternCondition = PlainPatternCondition(BoolPrimitive.TRUE)
-  val nothing: IPatternCondition = PlainPatternCondition(BoolPrimitive.FALSE)
+  private lazy val prototypeStaticContext = IEtaTerm(
+    PredefinedNames.THIS -> IPatternCondition.all
+  )(StringName("StaticContext"))
+
+  lazy val universalThis = IVarTerm(prototypeStaticContext,PredefinedNames.THIS)
+
+  lazy val all: IPatternCondition = ConstantPatternCondition(BoolPrimitive.TRUE)
+  lazy val nothing: IPatternCondition = ConstantPatternCondition(BoolPrimitive.FALSE)
 
 }
 
@@ -81,58 +90,58 @@ case class CPatternCondition[T](override val carrier:T, override val tcGuarded:T
 }
 
 
-case class PlainPatternCondition(override val expression: ITerm) extends IPatternCondition {
+case class PlainPatternCondition(
+    override val expression: ITerm,
+    val inThisVar: IVarTerm) extends IPatternCondition {
 
   override type Carrier = PlainPatternCondition
 
   override def carrier: PlainPatternCondition = this
 
+  override def thisVar: FastRefOption[IVarTerm] = FastRefOption(inThisVar)
+
   override def tcGuarded: TCPatternCondition[Carrier] = TCPlainPatternCondition
 
-  private final def change(modify: ITerm => ITerm): IPatternCondition = {
-    val ne = modify(expression)
+  private final def change(modify: (ITerm, Map[IEtaTerm,IEtaTerm]) => (ITerm,Map[IEtaTerm,IEtaTerm]), vo0: Map[IEtaTerm,IEtaTerm]): IPatternCondition = {
+    val (ne, vo) = modify(expression,vo0)
     if (ne eq expression) {
       this
     } else {
-      PlainPatternCondition(ne)
+      val nThisEta = vo.getOrElse(inThisVar.owner,inThisVar.owner)
+      val nThisVar = if (nThisEta eq inThisVar.owner) {
+        inThisVar
+      } else {
+        PlainVarTerm(nThisEta,inThisVar.name)
+      }
+      PlainPatternCondition(ne, nThisVar)
     }
   }
 
   override def mapVars(f: IVarTerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
-    change(_.mapVars(f,vo))
+    change((t,vo) => (t.mapVars(f,vo),vo), vo )
   }
 
   override def substVars(s: VarSubstitution, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
-    change(_.substVars(s,vo))
+    change((t,vo) => (t.substVars(s,vo), vo), vo)
   }
-
-  /*
-  override def subst[N <: ITerm, V <: ITerm](s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = {
-     if (nTag <:< (ClassManifestFactory.classType(classOf[IPatternCondition]))) {
-       val sn = s.asInstanceOf[Substitution[IPatternCondition,V]]
-       sn.get(this) match {
-         case FastRefOption.Some(x) => x
-         case FastRefOption.Empty() => change(_.subst(s,vo))
-       }
-     } else {
-       change(_.subst(s,vo))
-     }
-  }
-  */
 
   override def leftUnifyInSubst(s: VarSubstitution, o: ITerm): UnificationResult = {
-    expression match {
-      case IEtaTerm(etaExpression) =>
-        etaExpression.context().get(PredefinedNames.THIS) match {
-          case FastRefOption.Some(thisValue) => thisValue.leftUnifyInSubst(s,o) match {
-              case UnificationSuccess(s1) =>
-                PredefLogicInterpretations.instance.check(etaExpression.baseTerm(),s1)
-              case failure => failure
-            }
-          case FastRefOption.Empty() => PlainPatternCondition(etaExpression.baseTerm()).leftUnifyInSubst(s,o)
-        }
-      case other =>
-        PredefLogicInterpretations.instance.check(other,s)
+        PredefLogicInterpretations.instance.check(o,s)
+  }
+
+  override def substExpression(nExpr: ITerm, nThisVar: FastRefOption[IVarTerm]): IPatternCondition = {
+    nThisVar match {
+      case FastRefOption.Some(v) =>
+         copy(expression = nExpr, inThisVar = v)
+      case FastRefOption.Empty() =>
+         // check, are we have old var there ?
+         if (Contains(nExpr,inThisVar)) {
+           copy(expression = nExpr)
+         } else {
+           new ConstantPatternCondition(nExpr)
+         }
+
+
     }
   }
 
@@ -145,27 +154,81 @@ object TCPlainPatternCondition extends TCPatternCondition[PlainPatternCondition]
 
   override def expression(t: PlainPatternCondition): ITerm = t.expression
 
-  override def substExpression(t: PlainPatternCondition, nExpr: ITerm): IPatternCondition =
-    t.copy(expression = nExpr)
+  override def substExpression(t: PlainPatternCondition, nExpr: ITerm, nThisVar: FastRefOption[IVarTerm]): IPatternCondition =
+    t.substExpression(nExpr,nThisVar)
+
+  override def thisVar(t: Carrier): FastRefOption[IVarTerm] = t.thisVar
 
   override def mapVars(t: PlainPatternCondition, f: IVarTerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = t.mapVars(f,vo)
 
-  /*
-  override def subst[N <: ITerm, V <: ITerm](t: PlainPatternCondition, s: Substitution[N, V], vo: Map[IEtaTerm, IEtaTerm])(implicit nTag: ClassTag[N]): ITerm = {
-    t.subst(s, vo)
+  override def leftUnifyInSubst(t: PlainPatternCondition, s: VarSubstitution, o: ITerm): UnificationResult = t.leftUnifyInSubst(s,o)
+
+}
+
+/**
+  * Condition, which is not depends from this.
+  * They should be in onw class, because unoversalThis, which is
+  * used as argumement for PlainPatternCondition, is vaiable
+  * which should be resolved in context to IPatternCondition.ALL
+  * So if we will use ALL as PlainPattern, we will receive loop in
+  * value initializations.
+  *
+  */
+case class ConstantPatternCondition(override val expression: ITerm) extends IPatternCondition {
+
+  override type Carrier = ConstantPatternCondition
+
+  override def tcGuarded: TCPatternCondition[ConstantPatternCondition] = TCConstantPatternCondition
+
+  override def carrier: ConstantPatternCondition = this
+
+  override def thisVar: FastRefOption[IVarTerm] = FastRefOption.empty
+
+  override def substExpression(nExpr: ITerm, nThisVar: FastRefOption[IVarTerm]): IPatternCondition =
+    nExpr match {
+      case IPrimitive(p) =>
+        if (p.primitiveTypeIndex == PrimitiveTypeIndexes.BOOLEAN) {
+          val b:Boolean = p.value.asInstanceOf[Boolean]
+          ConstantPatternCondition(CPrimitive[Boolean](b,TCBoolPrimitive))
+        } else {
+           PlainPatternCondition(nExpr,IPatternCondition.universalThis)
+        }
+      case _ =>
+        PlainPatternCondition(nExpr,IPatternCondition.universalThis)
+    }
+
+  override def mapVars(f: IVarTerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
+    this
   }
 
-   */
+  override def leftUnifyInSubst(s: VarSubstitution, o: ITerm): UnificationResult = {
+    PredefLogicInterpretations.instance.check(expression,s)
+  }
 
-  override def tcName(t: Carrier): FastRefOption[TCName[Carrier]] = FastRefOption.empty
-  override def tcVar(t: Carrier): FastRefOption[TCVarTerm[Carrier]] = FastRefOption.empty
-  override def tcPrimitive(t: Carrier): FastRefOption[TCPrimitive[Carrier]] = FastRefOption.empty
-  override def tcStructured(t: Carrier): FastRefOption[TCStructured[Carrier]] = FastRefOption.empty
-  override def tcEta(t: Carrier): FastRefOption[TCEtaTerm[Carrier]] = FastRefOption.empty
-  override def tcError(t: Carrier): FastRefOption[TCErrorTerm[Carrier]] = FastRefOption.empty
+}
 
-  override def tcPatternCondition(t: Carrier): FastRefOption[TCPatternCondition[Carrier]] = FastRefOption(this)
+object ConstantPatternCondition {
 
-  override def leftUnifyInSubst(t: PlainPatternCondition, s: VarSubstitution, o: ITerm): UnificationResult = t.leftUnifyInSubst(s,o)
+  val TRUE = ConstantPatternCondition(BoolPrimitive(true))
+
+  val FALSE = ConstantPatternCondition(BoolPrimitive(false))
+
+}
+
+object TCConstantPatternCondition extends TCPatternCondition[ConstantPatternCondition] {
+
+
+  override def expression(t: ConstantPatternCondition): ITerm = t.expression
+
+  override def thisVar(t: ConstantPatternCondition): FastRefOption[IVarTerm] =
+    FastRefOption.empty
+
+  override def substExpression(t: ConstantPatternCondition, nExpr: ITerm, nThisVar: FastRefOption[IVarTerm]): IPatternCondition = t.substExpression(nExpr, nThisVar)
+
+  override def mapVars(t: ConstantPatternCondition, f: IVarTerm => ITerm, vo: Map[IEtaTerm, IEtaTerm]): ITerm = t.mapVars(f,vo)
+
+
+  override def leftUnifyInSubst(t: ConstantPatternCondition, s: VarSubstitution, o: ITerm): UnificationResult = t.leftUnifyInSubst(s,o)
+
 
 }

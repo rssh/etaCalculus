@@ -1,6 +1,6 @@
 package termware.etaCalculus.matchingNet
 
-import termware.etaCalculus.{Contradiction, ITerm}
+import termware.etaCalculus.{Contradiction, ITerm, PredefinedNames}
 import termware.util.SimplePrint
 
 

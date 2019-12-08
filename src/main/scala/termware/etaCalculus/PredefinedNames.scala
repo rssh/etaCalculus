@@ -13,5 +13,5 @@ object PredefinedNames {
 
   val EQ = StringName("eq")
   val UNIFY = StringName("unify")
-
+  val indterminacyName = StringName("indterminaxy")
 }

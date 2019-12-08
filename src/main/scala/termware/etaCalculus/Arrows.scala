@@ -24,6 +24,8 @@ trait TCArrows[T] extends TCTerm[T]
 
   def linear(t:T): Seq[(ITerm,ITerm)]
 
+  def indeterminacyVar(t: T): IVarTerm
+
   def addPair(t:T, left: ITerm, right:ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction,IArrows]
 
   def isEmpty(t:T): Boolean
@@ -65,7 +67,13 @@ trait IArrows extends ITerm
 
   def isEmpty(): Boolean
 
-  def linear(): Seq[(ITerm,ITerm)]
+  def linear(): Seq[(ITerm, ITerm)]
+
+  def indeterminacyVar(): IVarTerm
+
+  def linearRepresentation(): IArrows.LinearRepresentation =
+    IArrows.LinearRepresentation(linear(),indeterminacyVar())
+
 
   def addPair(left:ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction,IArrows]
 
@@ -95,6 +103,22 @@ object IArrows {
     }
   }
 
+  /**
+    * Linear repersenation of arrow as
+    *```
+    *  \eta x: a1 -> b1 | ... | x
+    *```
+    * Note, that eta is not represented, it can-be extracted from
+    *  context if needed.
+    * @param pairs
+    * @param indeterminacyVar
+    */
+  case class LinearRepresentation(
+      pairs: Seq[(ITerm,ITerm)],
+      // last var, where pointer to woner is situated
+      indeterminacyVar: IVarTerm
+  )
+
 }
 
 case class CArrows[T](t:T, tc: TCArrows[T]) extends IArrows {
@@ -113,7 +137,9 @@ case class CArrows[T](t:T, tc: TCArrows[T]) extends IArrows {
     tc.isEmpty(t)
   }
 
-  override def linear(): Seq[(ITerm, ITerm)] = tc.linear(t)
+  override def linear(): Seq[(ITerm,ITerm)] = tc.linear(t)
+
+  override def indeterminacyVar(): IVarTerm = tc.indeterminacyVar(t)
 
   override def addPair(left: ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction, IArrows] =
     tc.addPair(t,left,right,mergingPolicy)
@@ -145,11 +171,13 @@ object TCArrow extends TCArrows[Arrow] {
 
   override def linear(t: Arrow): Seq[(ITerm, ITerm)] = t.linear()
 
+  override def indeterminacyVar(t: Arrow): IVarTerm = t.indeterminacyVar()
+
   override def addPair(t: Arrow, left: ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction, IArrows] = {
     t.addPair(left, right, mergingPolicy)
   }
 
-  override def isEmpty(t: Arrow): Boolean = ???
+  override def isEmpty(t: Arrow): Boolean = false
 
   override def leftUnifyInSubst(t: Arrow, s: VarSubstitution, o: ITerm): UnificationResult = t.leftUnifyInSubst(s,o)
 
@@ -235,13 +263,19 @@ case class Arrow(left:ITerm, right:ITerm, otherwise: ITerm) extends IArrows {
     }
   }
 
+  override def indeterminacyVar(): IVarTerm =
+    resolveIArrow(otherwise) match {
+      case Left(v) => v
+      case Right(o) => o.indeterminacyVar()
+    }
+
   override def addPair(left: ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction, IArrows] = {
     ImplementationConfig.arrowsAddPolicy match {
       case ImplementationConfig.ArrrowsAddPolicy.ArrowsSequence =>
         addArrowSequence(left,right,mergingPolicy)
       case ImplementationConfig.ArrrowsAddPolicy.MatchingNet =>
         val mn = new ArrowMatchingElement(this)
-        mn.add(left,right,mergingPolicy).map(new MNArrows(_))
+        mn.add(left,right,mergingPolicy).map(new MNArrows(_,indeterminacyVar()))
     }
   }
 
@@ -312,7 +346,10 @@ case class Arrow(left:ITerm, right:ITerm, otherwise: ITerm) extends IArrows {
 
 }
 
+
 object TCEmptyArrows extends TCArrows[EmptyArrows.type] {
+
+  val indterminacyContext = IEtaTerm(PredefinedNames.indterminacyName -> IPatternCondition.all)(PredefinedNames.indterminacyName)
 
   override def iarrows(t: EmptyArrows.type): IArrows = t
 
@@ -325,13 +362,16 @@ object TCEmptyArrows extends TCArrows[EmptyArrows.type] {
 
   override def addPair(t: EmptyArrows.type, left: ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction, IArrows] = Right(Arrow(left,right,t))
 
+  private lazy val _indeteminacyVar: IVarTerm = {
+    PlainVarTerm(indterminacyContext,PredefinedNames.indterminacyName)
+  }
+
+  override def indeterminacyVar(t: EmptyArrows.type): IVarTerm = _indeteminacyVar
+
   override def leftUnifyInSubst(t: EmptyArrows.type, s: VarSubstitution, o: ITerm): UnificationResult = {
+    indterminacyContext.leftUnifyInSubst(s,o)
     o match {
-      case IArrows(oa) => if (oa.isEmpty()) {
-                             UnificationSuccess(s)
-                          } else {
-                             UnificationFailure("!empty",EmptyArrows,o,s)
-                          }
+      case IArrows(oa) => indterminacyContext.leftUnifyInSubst(s,o)
       case _ => UnificationFailure("!arrow",EmptyArrows,o,s)
     }
   }
@@ -343,6 +383,7 @@ object TCEmptyArrows extends TCArrows[EmptyArrows.type] {
 }
 
 object EmptyArrows extends IArrows {
+
   override type Carrier = this.type
 
   override def tcArrows: TCArrows[EmptyArrows.type] = TCEmptyArrows
@@ -366,6 +407,10 @@ object EmptyArrows extends IArrows {
   override def isEmpty(): Boolean = true
 
   override def linear(): Seq[(ITerm, ITerm)] = Seq.empty
+
+  override def indeterminacyVar(): IVarTerm = {
+    TCEmptyArrows.indeterminacyVar(this)
+  }
 
   override def addPair(left: ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction, IArrows] =
     Right(Arrow(left,right,this))

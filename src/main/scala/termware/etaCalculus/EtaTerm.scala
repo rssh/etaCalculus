@@ -2,9 +2,8 @@ package termware.etaCalculus
 
 import termware.NameSubstitution
 import termware.etaCalculus.PlainEtaTerm.TraveseTransformers
-import termware.util.{FastRefOption, IdentityRef, SimplePrint}
+import termware.util.{FastRefOption,  SimplePrint}
 
-import scala.reflect.ClassTag
 
 trait TCEtaTerm[T] extends TCTerm[T] {
 
@@ -84,6 +83,10 @@ trait IEtaTerm extends ITerm
 
 object IEtaTerm {
 
+  def apply(args: (IName,ITerm)*)(base: ITerm): IEtaTerm = {
+    create(NameSubstitution(args: _*),base)
+  }
+
   def unapply(arg: ITerm): FastRefOption[IEtaTerm] = arg.asEta()
 
   /**
@@ -112,6 +115,10 @@ object IEtaTerm {
        baseTerm
      )
 
+  }
+
+  implicit def namestrings(pair:(String,ITerm)):(IName,ITerm) = {
+    (StringName(pair._1),pair._2)
   }
 
 }
@@ -168,7 +175,7 @@ trait VarOwnerChangeTransformer extends TermKindTransformer[ITerm] {
     structured.mapSubterms(_.kindTransform(this,vo),vo,true)
   }
 
-  override def onEta(eta: IEtaTerm, vo: Map[IEtaTerm,IEtaTerm]): ITerm = {
+  override def onEta(eta: IEtaTerm, vo: Map[IEtaTerm,IEtaTerm]): IEtaTerm = {
     new PlainEtaTerm(
       new PlainEtaInitTransformers {
         override def contextTransformation(self: PlainEtaTerm, oldContext: NameSubstitution): NameSubstitution = {
@@ -191,11 +198,32 @@ trait VarOwnerChangeTransformer extends TermKindTransformer[ITerm] {
 
   override def onPatternCondition(patternCondition: IPatternCondition, vo: Map[IEtaTerm, IEtaTerm]): ITerm = {
      val expr = patternCondition.expression
-     val nExpr = expr.kindTransform(this,vo)
+     val thisVar = patternCondition.thisVar
+     var newThisOwner: FastRefOption[IEtaTerm] = FastRefOption.empty
+     val fixThisTransformer = new VarOwnerChangeTransformer {
+       override def onEta(eta: IEtaTerm, vo: Map[IEtaTerm, IEtaTerm]): IEtaTerm = {
+         val r = super.onEta(eta,vo)
+         thisVar match {
+           case FastRefOption.Some(thisVar) =>
+             if (newThisOwner.isEmpty && (eta eq thisVar.owner)) {
+               newThisOwner = Some(r)
+             }
+           case FastRefOption.Empty() =>
+         }
+         r
+       }
+     }
+     val nExpr = expr.kindTransform(fixThisTransformer,vo)
      if (nExpr eq expr) {
        patternCondition
      } else {
-       patternCondition.substExpression(nExpr)
+       val nThis = for{
+           nOwner <- newThisOwner
+           nThisVar <- thisVar
+       } yield {
+           PlainVarTerm(nOwner,nThisVar.name)
+       }
+       patternCondition.substExpression(nExpr,nThis)
      }
   }
 

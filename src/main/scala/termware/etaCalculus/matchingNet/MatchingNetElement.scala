@@ -1,6 +1,7 @@
 package termware.etaCalculus.matchingNet
 
 import termware.etaCalculus.{ArrowsMergingPolicy, ITerm, VarSubstitution}
+import termware.util.FastRefOption
 
 
 case class MatchingNetPatternCheckResult(
@@ -30,6 +31,13 @@ trait MatchingNetElement {
   def add(index:ITerm, value: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[MNContradiction,MatchingNetElement]
 
   def isFinal(): Boolean
+
+  def asFinal(): FastRefOption[FinalElement] = {
+    this match {
+      case fnp: FinalElement => FastRefOption(fnp)
+      case _ => FastRefOption.empty
+    }
+  }
 
 }
 

@@ -1,8 +1,9 @@
 package termware.etaCalculus.matchingNet
 
-import termware.etaCalculus.{Arrow, ArrowPatternCheckFailure, ArrowPatternCheckResult, ArrowPatternCheckSuccess, ArrowsMergingPolicy, Contradiction, EmptyArrows, IArrows, IEtaTerm, ITerm, IVarTerm, TCArrows, UnificationFailure, UnificationResult, UnificationSuccess, VarSubstitution}
+import termware.etaCalculus._
 
-class MNArrows(element: MatchingNetElement) extends IArrows {
+class MNArrows(element: MatchingNetElement,
+                indetermincy: IVarTerm = MNArrows.indeterminacy) extends IArrows {
 
   override type Carrier = MNArrows
   override def tcArrows: TCArrows[Carrier] = TCMNArrows
@@ -22,12 +23,50 @@ class MNArrows(element: MatchingNetElement) extends IArrows {
     }
   }
 
+
   override def termApplyChecked(arg: ITerm, u: ArrowPatternCheckSuccess): ITerm = {
     u.selectedRight.substVars(u.substitution,Map.empty)
   }
 
-  override def leftUnifyInSubst(s: VarSubstitution, o: ITerm): UnificationResult = {
-    ???
+  override def leftUnifyInSubst(s0: VarSubstitution, o: ITerm): UnificationResult = {
+    o match {
+      case IEtaTerm(eta) => eta.baseTerm().leftUnifyInSubst(s0,o)
+      case IArrows(arrows) =>
+        var s = s0
+        var indeterminacy: IArrows = EmptyArrows
+        var result: UnificationResult = UnificationSuccess(s)
+        var pairs = arrows.linear()
+        var wasFailure = false
+        while(!wasFailure && pairs.isEmpty) {
+           val (l,r) = pairs.head
+           pairs = pairs.tail
+           val check = this.checkPattern(s,l)
+           check match {
+             case ArrowPatternCheckFailure(_,_) =>
+               indeterminacy.addPair(l,r,ArrowsMergingPolicy.Contradiction) match {
+                 case Left(contradiction) =>
+                   result = UnificationFailure("contradiction when merging uncerainty",this,arrows,s)
+                   wasFailure = true
+                 case Right(newIndetermenism) =>
+                   indeterminacy = newIndetermenism
+               }
+             case ArrowPatternCheckSuccess(s1,sr,_) =>
+               s = s1
+               sr.leftUnifyInSubst(s,r) match {
+                 case UnificationSuccess(s2) => s = s2
+                 case f@UnificationFailure(msg,_,_,_,_) =>
+                   result = UnificationFailure(msg,this,o,s,Some(f))
+                   wasFailure = true
+               }
+           }
+        }
+        if (!wasFailure) {
+          result = UnificationSuccess(s.updated(indeterminacyVar(),indeterminacy))
+        }
+        result
+      case IPatternCondition(pc) =>
+        PredefLogicInterpretations.instance.check(pc.expression, s0)
+    }
   }
 
 
@@ -37,9 +76,17 @@ class MNArrows(element: MatchingNetElement) extends IArrows {
 
   override def addPair(left: ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction, IArrows] = ???
 
+  override def indeterminacyVar(): IVarTerm = indetermincy
+
 }
 
+object MNArrows {
 
+  val indeterminacyContext: IEtaTerm = IEtaTerm(PredefinedNames.indterminacyName -> IPatternCondition.all)(PredefinedNames.indterminacyName)
+
+  val indeterminacy = indeterminacyContext.baseTerm().asVar().!()
+
+}
 
 object TCMNArrows extends TCArrows[MNArrows] {
 
@@ -48,6 +95,8 @@ object TCMNArrows extends TCArrows[MNArrows] {
   override def checkPattern(t: MNArrows, s: VarSubstitution, arg: ITerm): ArrowPatternCheckResult = t.checkPattern(s,arg)
 
   override def linear(t: MNArrows): Seq[(ITerm, ITerm)] = t.linear()
+
+  override def indeterminacyVar(t: MNArrows): IVarTerm = t.indeterminacyVar()
 
   override def addPair(t: MNArrows, left: ITerm, right: ITerm, mergingPolicy: ArrowsMergingPolicy): Either[Contradiction, IArrows] =
     t.addPair(left, right, mergingPolicy)
